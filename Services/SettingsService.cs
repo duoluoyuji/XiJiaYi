@@ -31,7 +31,7 @@ public class AppSettings
     public string WebDavPassword { get; set; } = string.Empty;
 
     // 更新检查地址（GitHub Releases API / Gitee API / 通用 JSON）
-    public string UpdateCheckUrl { get; set; } = string.Empty;
+    public string UpdateCheckUrl { get; set; } = "https://api.github.com/repos/duoluoyuji/XiJiaYi/releases/latest";
 }
 
 public interface ISettingsService
