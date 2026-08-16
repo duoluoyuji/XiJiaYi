@@ -1,0 +1,31 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ImageBrush x:Key="SkinBackgroundBrush" ImageSource="/Assets/Skins/seaside.jpg" Stretch="UniformToFill"/>
+
+    <Color x:Key="LayerFillColorDefault">#E6110F14</Color>
+    <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="#E6110F14"/>
+    <Color x:Key="SolidBackgroundFillColorBase">#F20E0C12</Color>
+    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseBrush" Color="#F20E0C12"/>
+    <Color x:Key="SolidBackgroundFillColorSecondary">#F215121A</Color>
+    <SolidColorBrush x:Key="SolidBackgroundFillColorSecondaryBrush" Color="#F215121A"/>
+    <Color x:Key="SolidBackgroundFillColorTertiary">#F21D1924</Color>
+    <SolidColorBrush x:Key="SolidBackgroundFillColorTertiaryBrush" Color="#F21D1924"/>
+    <Color x:Key="CardBackgroundFillColorDefault">#F2191520</Color>
+    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#F2191520"/>
+    <Color x:Key="CardBackgroundFillColorSecondary">#F2221C2A</Color>
+    <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="#F2221C2A"/>
+    <Color x:Key="ControlFillColorDefault">#F21F1A26</Color>
+    <SolidColorBrush x:Key="ControlFillColorDefaultBrush" Color="#F21F1A26"/>
+    <Color x:Key="ControlFillColorSecondary">#F2292232</Color>
+    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="#F2292232"/>
+    <Color x:Key="ControlFillColorTertiary">#F2342B40</Color>
+    <SolidColorBrush x:Key="ControlFillColorTertiaryBrush" Color="#F2342B40"/>
+    <Color x:Key="SurfaceStrokeColorDefault">#FF40364C</Color>
+    <SolidColorBrush x:Key="SurfaceStrokeColorDefaultBrush" Color="#FF40364C"/>
+    <Color x:Key="DividerStrokeColorDefault">#FF40364C</Color>
+    <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="#FF40364C"/>
+    <Color x:Key="CardStrokeColorDefault">#FF5C4A68</Color>
+    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#FF5C4A68"/>
+    <Color x:Key="ControlStrokeColorDefault">#FF5C4A68</Color>
+    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="#FF5C4A68"/>
+</ResourceDictionary>

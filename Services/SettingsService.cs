@@ -1,0 +1,89 @@
+using System.IO;
+using System.Text.Json;
+using SteamLuaManager.Models;
+
+namespace SteamLuaManager.Services;
+
+public class AppSettings
+{
+    public string SteamPath { get; set; } = string.Empty;
+    public bool AutoRefreshEnabled { get; set; } = true;
+    public int SelectedCdnIndex { get; set; }
+    public string SelectedViewMode { get; set; } = "卡片";
+    public string AchievementViewMode { get; set; } = "卡片";
+    public string SelectedBackdrop { get; set; } = "Acrylic10";
+    public string DownloadMode { get; set; } = "DepotKey";
+    public string KeyFolderPath { get; set; } = string.Empty;
+    public bool IsFabVisible { get; set; } = true;
+    public bool IsCardRefreshVisible { get; set; } = true;
+    public string SelectedTheme { get; set; } = "Dark";
+    public string Skin { get; set; } = "Sakura";
+    public bool AutoCheckUpdateEnabled { get; set; } = false;
+    public bool ShowTrainerSections { get; set; } = true;
+    public bool ShowCopyLogButton { get; set; }
+    public bool EnableLogging { get; set; }
+    public bool MinimizeToTray { get; set; }
+    public List<TrainerBinding> TrainerBindings { get; set; } = new();
+
+    // 云存档（WebDAV，如坚果云）配置
+    public string WebDavUrl { get; set; } = string.Empty;
+    public string WebDavUser { get; set; } = string.Empty;
+    public string WebDavPassword { get; set; } = string.Empty;
+
+    // 更新检查地址（GitHub Releases API / Gitee API / 通用 JSON）
+    public string UpdateCheckUrl { get; set; } = string.Empty;
+}
+
+public interface ISettingsService
+{
+    AppSettings Load();
+    void Save(AppSettings settings);
+    event Action<AppSettings>? SettingsChanged;
+}
+
+public class SettingsService : ISettingsService
+{
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private readonly string _settingsFilePath;
+
+    public SettingsService()
+    {
+        _settingsFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+    }
+
+    public AppSettings Load()
+    {
+        try
+        {
+            if (File.Exists(_settingsFilePath))
+            {
+                var json = File.ReadAllText(_settingsFilePath);
+                var settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                if (string.IsNullOrWhiteSpace(settings.DownloadMode))
+                    settings.DownloadMode = "DepotKey";
+                return settings;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("设置", $"读取配置失败，已使用默认配置: {ex.Message}");
+        }
+        return new AppSettings();
+    }
+
+    public event Action<AppSettings>? SettingsChanged;
+
+    public void Save(AppSettings settings)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(settings, JsonOptions);
+            File.WriteAllText(_settingsFilePath, json);
+            SettingsChanged?.Invoke(settings);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("设置", $"保存配置失败: {ex.Message}");
+        }
+    }
+}

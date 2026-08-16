@@ -1,0 +1,22 @@
+# .NET 构建产物
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+.vs/
+
+# 运行时生成的数据（不入库）
+Resources/SvcMonitorPublish/
+Resources/SvcMonitor.zip
+settings.json
+app.log
+cache/
+Saves/
+*.lic
+
+# 系统文件
+Thumbs.db
+Desktop.ini
+.DS_Store

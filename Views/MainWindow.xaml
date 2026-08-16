@@ -1,0 +1,484 @@
+<Window x:Class="SteamLuaManager.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
+        Title="喜加一"
+        Icon="pack://application:,,,/Assets/app.ico"
+        Height="800" Width="1180"
+        MinHeight="600" MinWidth="960"
+        WindowStartupLocation="CenterScreen"
+        ui:WindowHelper.UseModernWindowStyle="True"
+        ui:WindowHelper.SystemBackdropType="Acrylic10"
+        ui:WindowHelper.CornerStyle="Round"
+        ui:WindowHelper.FixMaximizedWindow="True"
+        ui:TitleBar.Height="40"
+        Background="{DynamicResource SkinBackgroundBrush}"
+        AllowDrop="True"
+        DragEnter="Window_DragOver"
+        DragOver="Window_DragOver"
+        DragLeave="Window_DragLeave"
+        Drop="Window_Drop"
+        Loaded="Window_Loaded"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        RenderOptions.ClearTypeHint="Enabled"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+
+    <Window.Resources>
+        <!-- 侧边栏导航项样式（互斥选择，选中高亮） -->
+        <Style x:Key="SidebarNavStyle" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bg" Background="Transparent" CornerRadius="10" Padding="14,11" Margin="0,2">
+                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#1FFFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#2EFFFFFF"/>
+                                <Setter TargetName="Bg" Property="BorderBrush" Value="#40FFFFFF"/>
+                                <Setter TargetName="Bg" Property="BorderThickness" Value="1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 侧边栏小操作按钮 -->
+        <Style x:Key="SidebarActionStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Padding="14,9" Margin="0,2">
+                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#1FFFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#33FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 侧边栏底部折叠分区按钮 -->
+        <Style x:Key="SidebarSectionToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Hdr" Background="Transparent" CornerRadius="8"
+                                Padding="12,8" Margin="0,2">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                <TextBlock x:Name="Chev" Grid.Column="1" Text="&#xE70D;"
+                                           FontFamily="Segoe MDL2 Assets" FontSize="9"
+                                           VerticalAlignment="Center" Margin="8,0,0,0"
+                                           RenderTransformOrigin="0.5,0.5">
+                                    <TextBlock.RenderTransform>
+                                        <RotateTransform Angle="0"/>
+                                    </TextBlock.RenderTransform>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hdr" Property="Background" Value="#14FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chev" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <RotateTransform Angle="180"/>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter TargetName="Hdr" Property="Background" Value="#1FFFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 侧边栏弹出菜单容器 -->
+        <Style x:Key="SidebarFlyoutStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="MinWidth" Value="196"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background">
+                <Setter.Value>
+                    <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.97"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.35" Color="Black"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#E6101016"/>
+
+        <Style x:Key="OverlayCardStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="32"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background">
+                <Setter.Value>
+                    <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.92"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Background="{DynamicResource SkinBackgroundBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ============ 左侧固定导航栏 ============ -->
+        <Border Grid.Column="0" Background="{StaticResource SidebarBackgroundBrush}"
+                BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 顶部品牌 -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="20,22,14,20">
+                    <Border Width="40" Height="40" CornerRadius="14" Background="#26FFFFFF">
+                        <Image Source="/Assets/app.png" Width="36" Height="36" Stretch="Uniform"/>
+                    </Border>
+                    <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="喜加一" FontSize="20" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="Steam 游戏管理工具" FontSize="10.5" Margin="1,2,0,0"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 主导航：独立滚动区域，任何折叠都不会遮挡导航项 -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Padding="12,0,12,8">
+                    <StackPanel>
+                    <TextBlock Text="功能导航" FontSize="11" Margin="10,0,0,6"
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                    <RadioButton x:Name="HomeItem" GroupName="Nav" Tag="Home"
+                                 Style="{StaticResource SidebarNavStyle}" Content="我的游戏库"
+                                 Checked="NavItem_Checked"/>
+                    <RadioButton x:Name="ScriptDownloadItem" GroupName="Nav" Tag="ScriptDownload"
+                                 Style="{StaticResource SidebarNavStyle}" Content="入库管理"
+                                 Checked="NavItem_Checked"/>
+                    <RadioButton x:Name="ExtractionItem" GroupName="Nav" Tag="Extraction"
+                                 Style="{StaticResource SidebarNavStyle}" Content="提取授权"
+                                 Checked="NavItem_Checked"/>
+                    <RadioButton x:Name="AuthorizationItem" GroupName="Nav" Tag="Authorization"
+                                 Style="{StaticResource SidebarNavStyle}" Content="授权管理"
+                                 Checked="NavItem_Checked"/>
+                    <RadioButton x:Name="TrainerItem" GroupName="Nav" Tag="Trainer"
+                                 Style="{StaticResource SidebarNavStyle}" Content="修改器"
+                                 Checked="NavItem_Checked"/>
+                    <RadioButton x:Name="AchievementItem" GroupName="Nav" Tag="Achievement"
+                                 Style="{StaticResource SidebarNavStyle}" Content="成就管理"
+                                 Checked="NavItem_Checked"/>
+                    <RadioButton x:Name="SaveItem" GroupName="Nav" Tag="Save"
+                                 Style="{StaticResource SidebarNavStyle}" Content="存档管理"
+                                 Checked="NavItem_Checked"/>
+                    <RadioButton x:Name="OnlineFixItem" GroupName="Nav" Tag="OnlineFix"
+                                 Style="{StaticResource SidebarNavStyle}" Content="在线联机"
+                                 Checked="NavItem_Checked"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 底部：Steam 快捷操作 / 内核管理（弹出菜单，不占用布局空间）+ 设置 -->
+                <StackPanel Grid.Row="2" Margin="12,8,12,16">
+                    <ToggleButton x:Name="SteamQuickButton"
+                                  Style="{StaticResource SidebarSectionToggleStyle}"
+                                  Content="Steam 快捷操作"
+                                  Checked="SteamQuickButton_Checked"
+                                  Unchecked="SteamQuickButton_Unchecked"/>
+                    <Popup x:Name="SteamQuickPopup" StaysOpen="False" AllowsTransparency="True"
+                           PlacementTarget="{Binding ElementName=SteamQuickButton}"
+                           Placement="Top" PopupAnimation="Fade" Closed="SteamQuickPopup_Closed">
+                        <Border Style="{StaticResource SidebarFlyoutStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Steam 快捷操作" FontSize="11" Margin="10,6,10,8"
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                <Button x:Name="SteamStartButton" Style="{StaticResource SidebarActionStyle}"
+                                        Click="SteamStartButton_Click" Content="启动 Steam"/>
+                                <Button x:Name="SteamRestartButton" Style="{StaticResource SidebarActionStyle}"
+                                        Click="SteamRestartButton_Click" Content="重启 Steam"/>
+                                <Button x:Name="SteamAccountButton" Style="{StaticResource SidebarActionStyle}"
+                                        Click="SteamAccountButton_Click" Content="切换账号"/>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+
+                    <ToggleButton x:Name="KernelButton"
+                                  Style="{StaticResource SidebarSectionToggleStyle}"
+                                  Content="内核管理"
+                                  Checked="KernelButton_Checked"
+                                  Unchecked="KernelButton_Unchecked"/>
+                    <Popup x:Name="KernelPopup" StaysOpen="False" AllowsTransparency="True"
+                           PlacementTarget="{Binding ElementName=KernelButton}"
+                           Placement="Top" PopupAnimation="Fade" Closed="KernelPopup_Closed">
+                        <Border Style="{StaticResource SidebarFlyoutStyle}">
+                            <StackPanel>
+                                <TextBlock Text="内核管理" FontSize="11" Margin="10,6,10,8"
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                <Button x:Name="KernelInstallButton" Style="{StaticResource SidebarActionStyle}"
+                                        Click="KernelInstallButton_Click" Content="安装内核"/>
+                                <Button x:Name="KernelUpdateButton" Style="{StaticResource SidebarActionStyle}"
+                                        Click="KernelUpdateButton_Click" Content="更新内核"/>
+                                <Button x:Name="KernelUninstallButton" Style="{StaticResource SidebarActionStyle}"
+                                        Click="KernelUninstallButton_Click" Content="卸载内核"/>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+
+                    <Border Height="1" Margin="10,10,10,10"
+                            Background="{DynamicResource DividerStrokeColorDefaultBrush}"/>
+                    <RadioButton x:Name="SettingsItem" GroupName="Nav" Tag="Settings"
+                                 Style="{StaticResource SidebarNavStyle}" Content="设置"
+                                 Checked="NavItem_Checked"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============ 右侧主区域 ============ -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- 顶部标题栏 -->
+            <Grid Grid.Row="0" Margin="30,22,30,4">
+                <StackPanel>
+                    <TextBlock x:Name="PageTitleText" Text="我的游戏库" FontSize="25" FontWeight="Bold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBlock x:Name="PageSubtitleText" Text="管理已入库的 Steam 游戏"
+                               FontSize="12" Margin="0,4,0,0"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 页面内容 -->
+            <Grid Grid.Row="1" Margin="26,6,26,24">
+                <ui:TransitioningContentControl x:Name="ContentTransition"
+                                                 Transition="RightReplace"
+                                                 Background="{x:Null}"/>
+            </Grid>
+        </Grid>
+
+        <!-- ============ 内核安装遮罩层 ============ -->
+        <Grid x:Name="KernelOverlayGrid" Panel.ZIndex="210"
+              Visibility="Collapsed" Background="#A0000000" IsHitTestVisible="True">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="400" MinHeight="150" CornerRadius="14"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <StackPanel Margin="24,20">
+                    <TextBlock x:Name="KernelOverlayStatus" FontSize="14" TextAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock x:Name="KernelOverlayHint" FontSize="11" TextAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Margin="0,4,0,0" Visibility="Collapsed"
+                               Text="若下载过慢可尝试开启代理或 VPN"/>
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ProgressBar x:Name="KernelOverlayProgressBar" Minimum="0" Maximum="100" Value="0"
+                                     Height="6" Visibility="Collapsed"/>
+                        <TextBlock x:Name="KernelOverlayPercent" Grid.Column="1" FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   Margin="10,0,0,0" Visibility="Collapsed" Text="0%"/>
+                    </Grid>
+                    <ui:ProgressRing x:Name="KernelOverlayRing" IsActive="True" Width="28" Height="28"
+                                     Margin="0,12,0,0" HorizontalAlignment="Left"/>
+                    <Button x:Name="KernelCancelButton" Content="取消" Margin="0,14,0,0"
+                            Padding="12,6" FontSize="13" HorizontalAlignment="Center"
+                            Click="KernelCancelButton_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ============ DLC 查询遮罩层 ============ -->
+        <Grid Panel.ZIndex="200"
+              Visibility="{Binding IsDlcQueryOverlayVisible, Converter={StaticResource BoolToVisibilityConverter}}"
+              Background="#A0000000" IsHitTestVisible="True">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="320" MinHeight="120" CornerRadius="14"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,16">
+                    <ui:ProgressRing IsActive="True" Width="32" Height="32"
+                                     HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding DlcQueryOverlayText}"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               Margin="0,12,0,0"
+                               FontSize="14" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                               TextAlignment="Center"/>
+                    <Button Content="取消" Margin="0,14,0,0"
+                            Padding="12,6" FontSize="13" HorizontalAlignment="Center"
+                            Command="{Binding CancelDlcQueryCommand}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ============ 拖拽导入提示层 ============ -->
+        <Grid x:Name="DropHintGrid" Panel.ZIndex="220"
+              Visibility="Collapsed" Background="#A0000000" IsHitTestVisible="False">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="420" MinHeight="180" CornerRadius="16"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                <Grid>
+                    <Rectangle RadiusX="16" RadiusY="16"
+                               Stroke="{DynamicResource SystemAccentColorBrush}"
+                               StrokeThickness="2" StrokeDashArray="4,3"/>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="32,24">
+                        <ui:FontIcon Glyph="&#xE896;" FontSize="48" HorizontalAlignment="Center"
+                                     Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                        <TextBlock Text="拖拽到此处即可一键导入" FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                   HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                        <TextBlock Text="支持 .lua（游戏清单）和 .bin（成就数据）文件" FontSize="13"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ============ 授权票据拖拽导入提示层 ============ -->
+        <Grid x:Name="DropAuthHintGrid" Panel.ZIndex="221"
+              Visibility="Collapsed" Background="#A0000000" IsHitTestVisible="False">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="420" MinHeight="180" CornerRadius="16"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                <Grid>
+                    <Rectangle RadiusX="16" RadiusY="16"
+                               Stroke="{DynamicResource SystemAccentColorBrush}"
+                               StrokeThickness="2" StrokeDashArray="4,3"/>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="32,24">
+                        <ui:FontIcon Glyph="&#xE8B5;" FontSize="48" HorizontalAlignment="Center"
+                                     Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                        <TextBlock Text="拖拽到此处导入授权" FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                   HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                        <TextBlock Text="支持 tickets.txt（appticket / eticket 票据文件）" FontSize="13"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ============ 窗口级加载遮罩 ============ -->
+        <Border Panel.ZIndex="230" IsHitTestVisible="True" Background="#73000000">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsRefreshing}" Value="True"/>
+                                <Condition Binding="{Binding IsRefreshSlow}" Value="False"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="32">
+                <Border Style="{StaticResource OverlayCardStyle}">
+                    <StackPanel HorizontalAlignment="Center" MinWidth="260">
+                        <ui:ProgressRing IsActive="True" Width="34" Height="34" Margin="0,0,0,16"
+                                         HorizontalAlignment="Center"/>
+                        <TextBlock Text="正在加载游戏信息..." FontSize="16" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Margin="0,0,0,6"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="{Binding RefreshProgressText}" FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ============ 加载缓慢提示浮层 ============ -->
+        <Border Panel.ZIndex="231" IsHitTestVisible="True"
+                Visibility="{Binding IsRefreshSlow, Converter={StaticResource BoolToVisibilityConverter}}"
+                Background="#A0000000">
+            <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="32">
+                <Border Style="{StaticResource OverlayCardStyle}" MaxWidth="400">
+                    <StackPanel HorizontalAlignment="Center" Width="280">
+                        <ui:FontIcon Glyph="&#xE7BA;" FontSize="36" HorizontalAlignment="Center"
+                                      Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                        <TextBlock Text="获取游戏信息较慢" FontSize="20" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Margin="0,0,0,4"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="{Binding RefreshProgressText}" FontSize="14" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Margin="0,0,0,12"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <ui:ProgressRing IsActive="True" Width="24" Height="24" Margin="0,0,0,12"/>
+                        <TextBlock Text="已超过20秒，后台仍在尝试获取中..."
+                                   FontSize="13" TextWrapping="Wrap" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="提示：&#x0a;• 可尝试开启 VPN / 代理&#x0a;• 或前往 设置 → 封面CDN节点 切换试试"
+                                   FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center" Margin="0,8,0,16"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button Content="后台获取" Command="{Binding DismissSlowOverlayCommand}"
+                                    Padding="20,10" MinWidth="100" Margin="0,0,6,0"
+                                    FontWeight="SemiBold"/>
+                            <Button Content="取消获取" Command="{Binding CancelRefreshCommand}"
+                                    Padding="20,10" MinWidth="100" Margin="6,0,0,0"
+                                    Background="{DynamicResource SystemAccentColorBrush}" Foreground="White"
+                                    FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
