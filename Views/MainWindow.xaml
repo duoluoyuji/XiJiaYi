@@ -12,6 +12,7 @@
         ui:WindowHelper.CornerStyle="Round"
         ui:WindowHelper.FixMaximizedWindow="True"
         ui:TitleBar.Height="40"
+        ui:TitleBar.IsIconVisible="False"
         Background="{DynamicResource SkinBackgroundBrush}"
         AllowDrop="True"
         DragEnter="Window_DragOver"
@@ -180,16 +181,11 @@
                 </Grid.RowDefinitions>
 
                 <!-- 顶部品牌 -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="20,22,14,20">
-                    <Border Width="40" Height="40" CornerRadius="14" Background="#26FFFFFF">
-                        <Image Source="/Assets/app.png" Width="36" Height="36" Stretch="Uniform"/>
-                    </Border>
-                    <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="喜加一" FontSize="20" FontWeight="Bold"
-                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                        <TextBlock Text="Steam 游戏管理工具" FontSize="10.5" Margin="1,2,0,0"
-                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
-                    </StackPanel>
+                <StackPanel Grid.Row="0" Margin="20,24,14,18">
+                    <TextBlock Text="喜加一" FontSize="20" FontWeight="Bold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBlock Text="Steam 游戏管理工具" FontSize="10.5" Margin="1,3,0,0"
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
                 </StackPanel>
 
                 <!-- 主导航：独立滚动区域，任何折叠都不会遮挡导航项 -->

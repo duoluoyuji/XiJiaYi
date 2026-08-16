@@ -183,13 +183,8 @@ public partial class MainWindow : Window
 
     private void RefreshTitle()
     {
-        var status = _steamPathService.DetectSteamToolType() switch
-        {
-            SteamToolType.OpenSteamTool => "使用 OpenSteamTool 内核",
-            SteamToolType.SteamTools => "检测到不适配的 SteamTools",
-            _ => "未安装 OpenSteamTool"
-        };
-        Title = $"喜加一 - {status}";
+        // 顶部标题保持简洁，不显示内核状态等信息
+        Title = "喜加一";
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
