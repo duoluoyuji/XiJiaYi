@@ -385,17 +385,6 @@
                               Background="Transparent" Padding="0,0,20,0">
                     <StackPanel Margin="0,8,0,16">
 
-                        <ui:SettingsCard Header="更新检查地址" Margin="0,0,0,8"
-                                         Description="填写 GitHub / Gitee 发布接口地址或通用 JSON 地址，软件启动时会自动比对版本号"
-                                         ui:ControlHelper.CornerRadius="8">
-                            <ui:SettingsCard.Background>
-                                <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.45"/>
-                            </ui:SettingsCard.Background>
-                            <TextBox Text="{Binding UpdateCheckUrl, UpdateSourceTrigger=PropertyChanged}"
-                                     Width="420" HorizontalAlignment="Left" Padding="10,8" FontSize="12.5"
-                                     ToolTip="示例：&#x0a;GitHub: https://api.github.com/repos/用户名/仓库名/releases/latest&#x0a;Gitee: https://gitee.com/api/v5/repos/用户名/仓库名/releases/latest"/>
-                        </ui:SettingsCard>
-
                         <ui:SettingsCard Header="启动时自动检查" Margin="0,0,0,8"
                                          Description="每次打开软件时静默检查，发现新版本会弹出提示；检查失败不影响正常使用"
                                          ui:ControlHelper.CornerRadius="8">
@@ -426,18 +415,6 @@
                                 </StackPanel>
                             </StackPanel>
                         </ui:SettingsCard>
-
-                        <Border CornerRadius="10" Padding="14,10" Margin="0,4,0,0"
-                                Background="{DynamicResource LayerFillColorDefaultBrush}">
-                            <TextBlock TextWrapping="Wrap" LineHeight="21" FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}">
-                                <Run Text="更新地址填法：&#x0a;"/>
-                                <Run Text="① GitHub：https://api.github.com/repos/你的用户名/仓库名/releases/latest&#x0a;" FontFamily="Consolas"/>
-                                <Run Text="② Gitee（国内更快）：https://gitee.com/api/v5/repos/你的用户名/仓库名/releases/latest&#x0a;" FontFamily="Consolas"/>
-                                <Run Text="③ 也可以是自己托管的 JSON：{ &quot;version&quot;: &quot;1.5.0&quot;, &quot;notes&quot;: &quot;更新说明&quot;, &quot;downloadUrl&quot;: &quot;https://...exe&quot; }&#x0a;"/>
-                                <Run Text="软件会把发布时的版本号与当前版本比对，有新版就提示下载。" FontWeight="SemiBold"/>
-                            </TextBlock>
-                        </Border>
 
                     </StackPanel>
                 </ScrollViewer>

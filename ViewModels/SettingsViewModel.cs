@@ -104,7 +104,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         IsFabVisible = _settings.IsFabVisible;
         IsCardRefreshVisible = _settings.IsCardRefreshVisible;
         AutoCheckUpdateEnabled = _settings.AutoCheckUpdateEnabled;
-        UpdateCheckUrl = _settings.UpdateCheckUrl;
+        UpdateCheckUrl = UpdateService.DefaultUpdateCheckUrl;
         IsShowTrainerSections = _settings.ShowTrainerSections;
         IsShowCopyLogButton = _settings.ShowCopyLogButton;
         EnableLogging = _settings.EnableLogging;
@@ -249,12 +249,6 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         _settingsService.Save(_settings);
         StatusMessage = value ? "启动时自动检查更新已开启" : "启动时自动检查更新已关闭";
         LogService.Info("设置", value ? "启动时自动检查更新已开启" : "启动时自动检查更新已关闭");
-    }
-
-    partial void OnUpdateCheckUrlChanged(string value)
-    {
-        _settings.UpdateCheckUrl = value?.Trim() ?? string.Empty;
-        _settingsService.Save(_settings);
     }
 
     [RelayCommand]
