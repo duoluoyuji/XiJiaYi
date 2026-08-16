@@ -12,6 +12,9 @@ public interface IUpdateService
 
 public class UpdateService : IUpdateService
 {
+    /// <summary>内置更新检查地址（GitHub Releases API），编译进程序，无需用户配置。</summary>
+    public const string DefaultUpdateCheckUrl = "https://api.github.com/repos/duoluoyuji/XiJiaYi/releases/latest";
+
     private readonly IHttpClientProvider _httpClientProvider;
 
     public UpdateService(IHttpClientProvider httpClientProvider)

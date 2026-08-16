@@ -61,6 +61,8 @@ public class SettingsService : ISettingsService
                 var settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
                 if (string.IsNullOrWhiteSpace(settings.DownloadMode))
                     settings.DownloadMode = "DepotKey";
+                // 更新检查地址固定内置，不依赖用户配置（历史配置里的旧值一律覆盖）
+                settings.UpdateCheckUrl = UpdateService.DefaultUpdateCheckUrl;
                 return settings;
             }
         }
