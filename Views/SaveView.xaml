@@ -185,6 +185,56 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ========== Steam 原生云存档（CloudRedirect） ========== -->
+                <Border CornerRadius="14" Padding="24" Margin="0,0,0,14"
+                        BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
+                    <Border.Background>
+                        <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.5"/>
+                    </Border.Background>
+                    <StackPanel>
+                        <TextBlock Text="Steam 原生云存档（CloudRedirect）" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,4"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock TextWrapping="Wrap" LineHeight="22" FontSize="12.5" Margin="0,0,0,14"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                            <Run Text="让“假入库 / lua 游戏”也能用上 Steam 自带的云存档功能。原理："/>
+                            <Run Text="CloudRedirect" FontWeight="SemiBold"/>
+                            <Run Text="（开源项目）注入 Steam，把这类游戏的云存档请求重定向到你选择的云端：Google Drive、OneDrive、S3 或本地文件夹。"/>
+                        </TextBlock>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Button Content="下载官方 CloudRedirect" Padding="16,9" FontSize="13" FontWeight="SemiBold"
+                                    Margin="0,0,10,0"
+                                    IsEnabled="{Binding IsCloudRedirectDownloading, Converter={StaticResource BoolInvertConverter}}"
+                                    Command="{Binding DownloadCloudRedirectCommand}"/>
+                            <Button Content="启动 CloudRedirect" Padding="16,9" FontSize="13"
+                                    Margin="0,0,10,0"
+                                    Command="{Binding LaunchCloudRedirectCommand}"/>
+                            <Button Content="项目发布页" Padding="14,9" FontSize="12.5"
+                                    Command="{Binding OpenCloudRedirectPageCommand}"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <ui:ProgressRing IsActive="True" Width="16" Height="16" VerticalAlignment="Center"
+                                             Visibility="{Binding IsCloudRedirectDownloading, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <TextBlock Text="{Binding CloudRedirectStatus}" FontSize="12.5" Margin="8,0,0,0"
+                                       VerticalAlignment="Center" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+
+                        <Border CornerRadius="8" Padding="12,10"
+                                Background="{DynamicResource LayerFillColorDefaultBrush}">
+                            <TextBlock TextWrapping="Wrap" LineHeight="21" FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                <Run Text="说明：&#x0a;"/>
+                                <Run Text="• 下载的是作者官方发布版，带哈希校验，安全可追溯&#x0a;"/>
+                                <Run Text="• 支持 Google Drive / OneDrive / S3 / 本地文件夹；不支持坚果云（WebDAV）&#x0a;"/>
+                                <Run Text="• 属于实验性工具，作者建议使用前先备份存档；上面「云端备份 / 本地备份」正好作为保险&#x0a;"/>
+                                <Run Text="• 配置完成后需重启 Steam 生效；与 OpenSteamTool 内核是否兼容建议实测，遇到冲突可暂停其一" FontWeight="SemiBold"/>
+                            </TextBlock>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
                 <!-- ========== 完美存档替换 ========== -->
                 <Border CornerRadius="14" Padding="24" Margin="0,0,0,14"
                         BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
