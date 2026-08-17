@@ -22,7 +22,7 @@
                 <StackPanel>
                     <TextBlock Text="启动游戏并联机" FontSize="19" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                    <TextBlock Text="选择已入库的游戏，以 Online Fix 模式启动，与好友一起在线游玩"
+                    <TextBlock Text="选择已入库的游戏，以 SpaceWar(480) 身份启动，与好友一起在线游玩"
                                FontSize="12.5" Margin="0,4,0,16"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
 
@@ -47,7 +47,7 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
 
-                    <Button Command="{Binding LaunchOnlineFixCommand}" Content="启动游戏并联机"
+                    <Button Command="{Binding LaunchOnlineFixCommand}" Content="启动游戏联机"
                             Padding="20,10" FontSize="14" FontWeight="SemiBold" Margin="0,18,0,0"
                             HorizontalAlignment="Left"/>
                 </StackPanel>
@@ -60,14 +60,14 @@
                     <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.5"/>
                 </Border.Background>
                 <StackPanel>
-                    <TextBlock Text="功能说明" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
+                    <TextBlock Text="这是什么" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="22" FontSize="13"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}">
-                        <Run Text="Online Fix 通过命令行参数 "/>
+                        <Run Text="这是 SpaceWar(480) 联机：OpenSteamTool 内核通过启动参数 "/>
                         <Run Text="-onlinefix" FontFamily="Consolas" Foreground="{DynamicResource SystemAccentColorBrush}"/>
-                        <Run Text=" 启动游戏，OpenSteamTool 会将游戏的 AppID 替换为 480（SpaceWar），"/>
-                        <Run Text="从而使用 AppID 480 的大厅匹配功能进行在线联机。"/>
+                        <Run Text="（内核内部就叫 OnlineFix，与 online-fix.me 网站/补丁无关）把游戏的 AppID 临时替换为 480（SpaceWar），"/>
+                        <Run Text="游戏联机请求走 SpaceWar 的大厅匹配通道，从而与好友联机。"/>
                     </TextBlock>
 
                     <TextBlock Text="使用步骤" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,8"
@@ -75,11 +75,12 @@
                     <TextBlock TextWrapping="Wrap" LineHeight="24" FontSize="13"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}">
                         <Run Text="1. 在上方选择已入库的游戏（Lua 清单已配置）&#x0a;"/>
-                        <Run Text="2. 点击“启动游戏并联机”&#x0a;"/>
-                        <Run Text="3. 工具会自动执行："/>
+                        <Run Text="2. 点击“启动游戏联机”&#x0a;"/>
+                        <Run Text="3. 工具会自动执行："/> 
                         <Run Text="steam.exe -applaunch &lt;AppID&gt; -onlinefix" FontFamily="Consolas"
                              Foreground="{DynamicResource SystemAccentColorBrush}"/>
-                        <Run Text="&#x0a;4. 好友也需使用同样的方式启动，双方进入游戏后通过大厅匹配联机"/>
+                        <Run Text="&#x0a;4. 好友也需使用同样的方式启动，双方进入游戏后通过大厅匹配联机&#x0a;"/>
+                        <Run Text="5. 说明：此功能不下载、不安装 online-fix.me 等联机补丁，也不修改游戏文件"/>
                     </TextBlock>
 
                     <TextBlock Text="使用限制" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,8"
@@ -89,7 +90,8 @@
                         <Run Text="• 仅支持使用大厅匹配（Lobby）进行联机的游戏&#x0a;"/>
                         <Run Text="• 同一时间只能运行一个使用此功能的游戏&#x0a;"/>
                         <Run Text="• 双方游戏版本需一致，且都已安装 OpenSteamTool 内核&#x0a;"/>
-                        <Run Text="• 游戏必须已在 Lua 清单中配置（已入库）"/>
+                        <Run Text="• 游戏必须已在 Lua 清单中配置（已入库）&#x0a;"/>
+                        <Run Text="• 好友列表里会显示你在玩 SpaceWar；需要登录厂商服务器的游戏此功能无效"/>
                     </TextBlock>
                 </StackPanel>
             </Border>

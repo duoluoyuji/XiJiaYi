@@ -491,17 +491,18 @@ namespace SteamLuaManager.ViewModels;
 		}
 
 		var confirmed = await ShowModernConfirmAsync(
-			"启动在线联机",
+			"启动 480 联机",
 			$"游戏：{game.GameName}（AppID {game.AppId}）\n\n" +
-			$"将以 Online Fix 模式启动：\nsteam.exe -applaunch {game.AppId} -onlinefix\n\n" +
+			$"将以 SpaceWar(480) 身份启动：\nsteam.exe -applaunch {game.AppId} -onlinefix\n\n" +
 			"说明：\n" +
 			"• OpenSteamTool 会把游戏 AppID 替换为 480（SpaceWar）\n" +
-			"• 使用 AppID 480 的大厅匹配功能进行在线联机\n" +
+			"• 使用 AppID 480 的大厅匹配功能与好友联机\n" +
+			"• 这是 480 联机，与 online-fix.me 等联机补丁无关，不修改游戏文件\n" +
 			"• 同一时间只能运行一个使用此功能的游戏\n\n" +
 			"注意：\n" +
 			"• 游戏必须已在 Lua 清单中配置（已入库）\n" +
 			"• 双方游戏版本需一致，且都已安装本工具内核",
-			"启动并联机");
+			"启动联机");
 		if (!confirmed) return;
 
 		try
@@ -514,8 +515,8 @@ namespace SteamLuaManager.ViewModels;
 			psi.ArgumentList.Add(game.AppId.ToString());
 			psi.ArgumentList.Add("-onlinefix");
 			Process.Start(psi);
-			StatusMessage = $"已以在线联机模式启动：{game.GameName}";
-			LogService.Info("主页", $"在线联机启动: {game.GameName} ({game.AppId})");
+			StatusMessage = $"已以 SpaceWar(480) 联机模式启动：{game.GameName}";
+			LogService.Info("主页", $"480联机启动: {game.GameName} ({game.AppId})");
 		}
 		catch (Exception ex)
 		{

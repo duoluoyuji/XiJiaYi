@@ -28,8 +28,9 @@
 ### 成就管理
 - 查看 / 解锁 / 回锁已拥有游戏的 Steam 成就
 
-### 在线联机
-- 以 `-onlinefix` 参数启动游戏，通过 AppID 480（SpaceWar）大厅匹配实现好友联机
+### 480 联机（SpaceWar）
+- 以 SpaceWar(480) 身份启动游戏，通过 AppID 480 大厅匹配实现好友联机
+- 说明：此功能与 online-fix.me 等联机补丁无关，不下载、不修改游戏文件，仅由 OpenSteamTool 内核在运行时替换 AppID
 
 ### 存档管理
 - 自动扫描 Steam 本地云存档（userdata/remote）
