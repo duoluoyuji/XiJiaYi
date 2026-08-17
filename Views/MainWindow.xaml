@@ -217,7 +217,7 @@
                                  Style="{StaticResource SidebarNavStyle}" Content="存档管理"
                                  Checked="NavItem_Checked"/>
                     <RadioButton x:Name="OnlineFixItem" GroupName="Nav" Tag="OnlineFix"
-                                 Style="{StaticResource SidebarNavStyle}" Content="480 联机"
+                                 Style="{StaticResource SidebarNavStyle}" Content="在线联机"
                                  Checked="NavItem_Checked"/>
                     </StackPanel>
                 </ScrollViewer>
