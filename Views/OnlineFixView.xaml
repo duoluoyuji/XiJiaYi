@@ -66,7 +66,7 @@
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}">
                         <Run Text="这是 SpaceWar(480) 联机：OpenSteamTool 内核通过启动参数 "/>
                         <Run Text="-onlinefix" FontFamily="Consolas" Foreground="{DynamicResource SystemAccentColorBrush}"/>
-                        <Run Text="（内核内部就叫 OnlineFix，与 online-fix.me 网站/补丁无关）把游戏的 AppID 临时替换为 480（SpaceWar），"/>
+<Run Text=" 把游戏的 AppID 临时替换为 480（SpaceWar），"/>
                         <Run Text="游戏联机请求走 SpaceWar 的大厅匹配通道，从而与好友联机。"/>
                     </TextBlock>
 
@@ -79,8 +79,7 @@
                         <Run Text="3. 工具会自动执行："/> 
                         <Run Text="steam.exe -applaunch &lt;AppID&gt; -onlinefix" FontFamily="Consolas"
                              Foreground="{DynamicResource SystemAccentColorBrush}"/>
-                        <Run Text="&#x0a;4. 好友也需使用同样的方式启动，双方进入游戏后通过大厅匹配联机&#x0a;"/>
-                        <Run Text="5. 说明：此功能不下载、不安装 online-fix.me 等联机补丁，也不修改游戏文件"/>
+<Run Text="&#x0a;4. 好友也需使用同样的方式启动，双方进入游戏后通过大厅匹配联机"/>
                     </TextBlock>
 
                     <TextBlock Text="使用限制" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,8"

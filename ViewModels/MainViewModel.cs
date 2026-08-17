@@ -491,13 +491,12 @@ namespace SteamLuaManager.ViewModels;
 		}
 
 		var confirmed = await ShowModernConfirmAsync(
-			"启动 480 联机",
+			"启动在线联机",
 			$"游戏：{game.GameName}（AppID {game.AppId}）\n\n" +
 			$"将以 SpaceWar(480) 身份启动：\nsteam.exe -applaunch {game.AppId} -onlinefix\n\n" +
 			"说明：\n" +
 			"• OpenSteamTool 会把游戏 AppID 替换为 480（SpaceWar）\n" +
 			"• 使用 AppID 480 的大厅匹配功能与好友联机\n" +
-			"• 这是 480 联机，与 online-fix.me 等联机补丁无关，不修改游戏文件\n" +
 			"• 同一时间只能运行一个使用此功能的游戏\n\n" +
 			"注意：\n" +
 			"• 游戏必须已在 Lua 清单中配置（已入库）\n" +

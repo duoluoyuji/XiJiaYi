@@ -951,7 +951,7 @@ public partial class MainWindow : Window
             "Trainer" => ("修改器", "搜索、下载和管理游戏修改器"),
             "Achievement" => ("成就管理", "解锁或回锁已拥有的游戏成就"),
             "Save" => ("存档管理", "本地备份、云端同步与完美存档一键替换"),
-            "OnlineFix" => ("SpaceWar(480) 联机", "以 SpaceWar(480) 身份启动游戏，使用大厅匹配与好友联机"),
+            "OnlineFix" => ("在线联机", "以 SpaceWar(480) 身份启动游戏，使用大厅匹配与好友联机"),
             "Settings" => ("设置", "软件设置与皮肤选择"),
             _ => (tag, string.Empty)
         };
