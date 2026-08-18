@@ -385,16 +385,6 @@
                               Background="Transparent" Padding="0,0,20,0">
                     <StackPanel Margin="0,8,0,16">
 
-                        <ui:SettingsCard Header="启动时自动检查" Margin="0,0,0,8"
-                                         Description="每次打开软件时静默检查，发现新版本会弹出提示；检查失败不影响正常使用"
-                                         ui:ControlHelper.CornerRadius="8">
-                            <ui:SettingsCard.Background>
-                                <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.45"/>
-                            </ui:SettingsCard.Background>
-                            <ui:ToggleSwitch IsOn="{Binding AutoCheckUpdateEnabled}"
-                                             OnContent="开" OffContent="关"/>
-                        </ui:SettingsCard>
-
                         <ui:SettingsCard Header="手动检查更新" Margin="0,0,0,8"
                                          Description="立即连接更新地址检查一次，有新版本会弹出下载提示"
                                          ui:ControlHelper.CornerRadius="8">
@@ -415,6 +405,14 @@
                                 </StackPanel>
                             </StackPanel>
                         </ui:SettingsCard>
+
+                        <StackPanel HorizontalAlignment="Center" Margin="0,32,0,4">
+                            <TextBlock Text="当前版本" FontSize="12" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                            <TextBlock Text="{Binding CurrentVersion}" FontSize="24" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,6,0,0"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        </StackPanel>
 
                     </StackPanel>
                 </ScrollViewer>
