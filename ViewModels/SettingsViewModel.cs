@@ -51,6 +51,10 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isCheckingUpdate;
 
+    /// <summary>当前软件版本号（随构建自动更新）。</summary>
+    public string CurrentVersion =>
+        "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0");
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SpeedTestProgressText))]
     private int _speedTestProgress;

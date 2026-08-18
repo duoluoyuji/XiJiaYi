@@ -200,10 +200,7 @@ public partial class MainWindow : Window
         _settingsViewModel.SelectedBackdrop = settings.SelectedBackdrop;
 
         // 启动时静默检查更新（有新版本会弹窗提示，失败不影响使用）
-        if (settings.AutoCheckUpdateEnabled && !string.IsNullOrWhiteSpace(settings.UpdateCheckUrl))
-        {
-            _ = _settingsViewModel.CheckForUpdatesSilentlyAsync();
-        }
+        _ = _settingsViewModel.CheckForUpdatesSilentlyAsync();
 
         switch (_viewModel.OpenSteamToolStatus)
         {
