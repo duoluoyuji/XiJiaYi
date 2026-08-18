@@ -19,43 +19,93 @@
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap" Visibility="{Binding StatusMessage, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
 
-                <!-- ========== 本地存档 ========== -->
+                <!-- ========== Steam 云存档（CloudRedirect，置顶） ========== -->
                 <Border CornerRadius="14" Padding="24" Margin="0,0,0,14"
                         BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
                     <Border.Background>
                         <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.5"/>
                     </Border.Background>
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="本地存档" FontSize="19" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <Button Content="刷新列表" Margin="16,0,0,0" Padding="14,6" FontSize="12.5"
-                                    VerticalAlignment="Center"
-                                    Command="{Binding RefreshCommand}"/>
+                        <TextBlock Text="Steam 云存档（CloudRedirect）" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,4"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock TextWrapping="Wrap" LineHeight="22" FontSize="12.5" Margin="0,0,0,14"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                            <Run Text="让“假入库 / lua 游戏”也能用上 Steam 云存档。支持 "/>
+                            <Run Text="Steam 创意工坊" FontWeight="SemiBold"/>
+                            <Run Text="（存档存到 Valve 创意工坊服务器、绑定你自己的 Steam 账号，无需第三方网盘登录）、Google Drive、OneDrive、S3 或本地文件夹。"/>
+                        </TextBlock>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Button Content="下载 CloudRedirect（含创意工坊）" Padding="16,9" FontSize="13" FontWeight="SemiBold"
+                                    Margin="0,0,10,0"
+                                    IsEnabled="{Binding IsCloudRedirectDownloading, Converter={StaticResource BoolInvertConverter}}"
+                                    Command="{Binding DownloadCloudRedirectCommand}"/>
+                            <Button Content="启动 CloudRedirect" Padding="16,9" FontSize="13"
+                                    Margin="0,0,10,0"
+                                    Command="{Binding LaunchCloudRedirectCommand}"/>
+                            <Button Content="项目发布页" Padding="14,9" FontSize="12.5"
+                                    Command="{Binding OpenCloudRedirectPageCommand}"/>
                         </StackPanel>
-                        <TextBlock Text="自动扫描 Steam userdata 目录中的本地云存档（remote 文件夹）"
-                                   FontSize="12.5" Margin="0,4,0,16"
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <ui:ProgressRing IsActive="True" Width="16" Height="16" VerticalAlignment="Center"
+                                             Visibility="{Binding IsCloudRedirectDownloading, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <TextBlock Text="{Binding CloudRedirectStatus}" FontSize="12.5" Margin="8,0,0,0"
+                                       VerticalAlignment="Center" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+
+                        <Border CornerRadius="8" Padding="12,10"
+                                Background="{DynamicResource LayerFillColorDefaultBrush}">
+                            <TextBlock TextWrapping="Wrap" LineHeight="21" FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                <Run Text="说明：&#x0a;"/>
+                                <Run Text="• 下载的是作者分支版（pvzcxw/1.0.2），已包含「Steam 创意工坊」提供商，带哈希校验&#x0a;"/>
+                                <Run Text="• 创意工坊方式：存档以不公开物品发布到 SpaceWar(480) 创意工坊，换电脑登录同一账号自动找回&#x0a;"/>
+                                <Run Text="• 属于实验性工具，建议搭配下方「云端备份（WebDAV）」作为保险&#x0a;"/>
+                                <Run Text="• 配置完成后需重启 Steam 生效；建议配套使用作者分支内核 ost1.4.9（设置→接口设置→内核更新源）" FontWeight="SemiBold"/>
+                            </TextBlock>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- ========== 云端备份（WebDAV） ========== -->
+                <Border CornerRadius="14" Padding="24" Margin="0,0,0,14"
+                        BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
+                    <Border.Background>
+                        <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.5"/>
+                    </Border.Background>
+                    <StackPanel>
+                        <TextBlock Text="云端备份（WebDAV）" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,4"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="使用 WebDAV 协议（推荐坚果云：https://dav.jianguoyun.com/dav/，需使用应用密码）"
+                                   FontSize="12.5" Margin="0,0,0,14" TextWrapping="Wrap"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
 
                         <TextBlock Text="选择游戏" FontSize="12" Margin="0,0,0,6"
                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
-                        <ComboBox ItemsSource="{Binding SaveGames}" SelectedItem="{Binding SelectedSave}"
-                                  MinWidth="420" MaxWidth="620" Padding="12,8"
-                                  HorizontalAlignment="Left">
-                            <ComboBox.Background>
-                                <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.5"/>
-                            </ComboBox.Background>
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="2">
-                                        <TextBlock Text="{Binding DisplayName}" FontSize="13"
-                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                                        <TextBlock Text="{Binding InfoText}" FontSize="11" Margin="0,2,0,0"
-                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <StackPanel Orientation="Horizontal">
+                            <ComboBox ItemsSource="{Binding SaveGames}" SelectedItem="{Binding SelectedSave}"
+                                      MinWidth="420" MaxWidth="620" Padding="12,8"
+                                      HorizontalAlignment="Left">
+                                <ComboBox.Background>
+                                    <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.5"/>
+                                </ComboBox.Background>
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="2">
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="13"
+                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding InfoText}" FontSize="11" Margin="0,2,0,0"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Content="刷新列表" Margin="12,0,0,0" Padding="14,8" FontSize="12.5"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding RefreshCommand}"/>
+                        </StackPanel>
 
                         <TextBlock Text="{Binding SelectedSave.InfoText, StringFormat=存档信息：{0}}"
                                    FontSize="12.5" Margin="0,10,0,0"
@@ -66,64 +116,7 @@
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap"/>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
-                            <Button Content="打开存档目录" Padding="18,9" FontSize="13" Margin="0,0,10,0"
-                                    Command="{Binding OpenSaveFolderCommand}"/>
-                            <Button Content="备份到本地" Padding="18,9" FontSize="13" FontWeight="SemiBold"
-                                    Command="{Binding BackupLocalCommand}"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- ========== 本地备份 ========== -->
-                <Border CornerRadius="14" Padding="24" Margin="0,0,0,14"
-                        BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
-                    <Border.Background>
-                        <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.5"/>
-                    </Border.Background>
-                    <StackPanel>
-                        <TextBlock Text="本地备份" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,4"
-                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                        <TextBlock Text="每次备份/替换前都会自动生成一份，可随时一键恢复"
-                                   FontSize="12.5" Margin="0,0,0,12"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-
-                        <ListBox ItemsSource="{Binding LocalBackups}"
-                                 SelectedItem="{Binding SelectedLocalBackup}"
-                                 MaxHeight="180" MinHeight="72"
-                                 Background="{DynamicResource LayerFillColorDefaultBrush}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding DisplayName}" FontSize="12.5" Margin="4,3"
-                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                            <Button Content="恢复所选备份" Padding="18,9" FontSize="13" FontWeight="SemiBold"
-                                    Margin="0,0,10,0"
-                                    Command="{Binding RestoreLocalCommand}"/>
-                            <Button Content="打开备份文件夹" Padding="14,9" FontSize="12.5"
-                                    Command="{Binding OpenBackupFolderCommand}"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- ========== 云端备份 ========== -->
-                <Border CornerRadius="14" Padding="24" Margin="0,0,0,14"
-                        BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
-                    <Border.Background>
-                        <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.5"/>
-                    </Border.Background>
-                    <StackPanel>
-                        <TextBlock Text="云端备份" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,4"
-                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                        <TextBlock Text="使用 WebDAV 协议（推荐坚果云：https://dav.jianguoyun.com/dav/，需使用应用密码）"
-                                   FontSize="12.5" Margin="0,0,0,14" TextWrapping="Wrap"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-
-                        <Grid>
+                        <Grid Margin="0,16,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="220"/>
@@ -182,106 +175,6 @@
                         <Button Content="下载并恢复所选云端备份" Padding="18,9" FontSize="13" FontWeight="SemiBold"
                                 Margin="0,12,0,0" HorizontalAlignment="Left"
                                 Command="{Binding RestoreCloudCommand}"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- ========== Steam 原生云存档（CloudRedirect） ========== -->
-                <Border CornerRadius="14" Padding="24" Margin="0,0,0,14"
-                        BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
-                    <Border.Background>
-                        <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.5"/>
-                    </Border.Background>
-                    <StackPanel>
-                        <TextBlock Text="Steam 原生云存档（CloudRedirect）" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,4"
-                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                        <TextBlock TextWrapping="Wrap" LineHeight="22" FontSize="12.5" Margin="0,0,0,14"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}">
-                            <Run Text="让“假入库 / lua 游戏”也能用上 Steam 自带的云存档功能。原理："/>
-                            <Run Text="CloudRedirect" FontWeight="SemiBold"/>
-                            <Run Text="（开源项目）注入 Steam，把这类游戏的云存档请求重定向到你选择的云端：Google Drive、OneDrive、S3 或本地文件夹。"/>
-                        </TextBlock>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <Button Content="下载官方 CloudRedirect" Padding="16,9" FontSize="13" FontWeight="SemiBold"
-                                    Margin="0,0,10,0"
-                                    IsEnabled="{Binding IsCloudRedirectDownloading, Converter={StaticResource BoolInvertConverter}}"
-                                    Command="{Binding DownloadCloudRedirectCommand}"/>
-                            <Button Content="启动 CloudRedirect" Padding="16,9" FontSize="13"
-                                    Margin="0,0,10,0"
-                                    Command="{Binding LaunchCloudRedirectCommand}"/>
-                            <Button Content="项目发布页" Padding="14,9" FontSize="12.5"
-                                    Command="{Binding OpenCloudRedirectPageCommand}"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                            <ui:ProgressRing IsActive="True" Width="16" Height="16" VerticalAlignment="Center"
-                                             Visibility="{Binding IsCloudRedirectDownloading, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                            <TextBlock Text="{Binding CloudRedirectStatus}" FontSize="12.5" Margin="8,0,0,0"
-                                       VerticalAlignment="Center" TextWrapping="Wrap"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                        </StackPanel>
-
-                        <Border CornerRadius="8" Padding="12,10"
-                                Background="{DynamicResource LayerFillColorDefaultBrush}">
-                            <TextBlock TextWrapping="Wrap" LineHeight="21" FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}">
-                                <Run Text="说明：&#x0a;"/>
-                                <Run Text="• 下载的是作者官方发布版，带哈希校验，安全可追溯&#x0a;"/>
-                                <Run Text="• 支持 Google Drive / OneDrive / S3 / 本地文件夹；不支持坚果云（WebDAV）&#x0a;"/>
-                                <Run Text="• 属于实验性工具，作者建议使用前先备份存档；上面「云端备份 / 本地备份」正好作为保险&#x0a;"/>
-                                <Run Text="• 配置完成后需重启 Steam 生效；与 OpenSteamTool 内核是否兼容建议实测，遇到冲突可暂停其一" FontWeight="SemiBold"/>
-                            </TextBlock>
-                        </Border>
-                    </StackPanel>
-                </Border>
-
-                <!-- ========== 完美存档替换 ========== -->
-                <Border CornerRadius="14" Padding="24" Margin="0,0,0,14"
-                        BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
-                    <Border.Background>
-                        <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.5"/>
-                    </Border.Background>
-                    <StackPanel>
-                        <TextBlock Text="完美存档一键替换" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,4"
-                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                        <TextBlock TextWrapping="Wrap" LineHeight="22" FontSize="12.5" Margin="0,0,0,12"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}">
-                            <Run Text="从网上下载完美存档（ZIP 或文件夹），工具会自动："/>
-                            <Run Text="① 备份当前存档 → ② 替换到游戏存档目录 → ③ 修正存档内的 Steam 账号 ID" FontWeight="SemiBold"/>
-                            <Run Text="。无需 Cheat Engine（CE 用于改内存，存档 ID 是直接写在存档文件里的，直接文本/二进制替换即可）。"/>
-                        </TextBlock>
-
-                        <CheckBox Content="自动替换存档内账号 ID（推荐，防止“存档不通用”）"
-                                  IsChecked="{Binding ReplaceIdsEnabled}"
-                                  FontSize="13" Margin="0,0,0,10"
-                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-
-                        <TextBlock Text="存档来源账号的 SteamID（64 位或 3 位均可，可留空）"
-                                   FontSize="12" Margin="0,0,0,5"
-                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
-                        <TextBox Text="{Binding OriginalSteamId, UpdateSourceTrigger=PropertyChanged}"
-                                 Padding="10,8" FontSize="13" MaxWidth="420" HorizontalAlignment="Left"
-                                 ToolTip="填写存档原主人的账号 ID，工具会自动换算成 64 位与 3 位两种形式并替换为本机 ID"/>
-
-                        <TextBlock Text="自定义替换规则（每行一条：旧值=新值，可留空）"
-                                   FontSize="12" Margin="0,12,0,5"
-                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
-                        <TextBox Text="{Binding CustomRules, UpdateSourceTrigger=PropertyChanged}"
-                                 Padding="10,8" FontSize="12.5" Height="64" MaxWidth="560"
-                                 HorizontalAlignment="Left" AcceptsReturn="True"
-                                 TextWrapping="Wrap"
-                                 ToolTip="示例：\n1234567890=76561198012345678\n保存数据=存档数据"/>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                            <Button Content="导入存档 ZIP" Padding="18,9" FontSize="13" FontWeight="SemiBold"
-                                    Margin="0,0,10,0"
-                                    Command="{Binding ImportPerfectSaveCommand}"/>
-                            <Button Content="导入存档文件夹" Padding="18,9" FontSize="13" FontWeight="SemiBold"
-                                    Margin="0,0,10,0"
-                                    Command="{Binding ImportPerfectSaveFolderCommand}"/>
-                            <Button Content="搜索完美存档" Padding="14,9" FontSize="12.5"
-                                    Command="{Binding SearchPerfectSaveCommand}"/>
-                        </StackPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>

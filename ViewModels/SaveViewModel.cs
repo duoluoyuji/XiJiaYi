@@ -435,17 +435,17 @@ public partial class SaveViewModel : ObservableObject
 
     private string CloudRedirectDllPath => Path.Combine(CloudRedirectDir, "cloud_redirect.dll");
 
-    private const string CloudRedirectReleasesPage = "https://github.com/Selectively11/CloudRedirect/releases";
+    private const string CloudRedirectReleasesPage = "https://github.com/pvzcxw/cloudRedirect/releases";
 
-    /// <summary>官方最新版直链（GitHub 会自动重定向到最新 Release 的对应文件）。</summary>
-    private const string CloudRedirectDownloadBase = "https://github.com/Selectively11/CloudRedirect/releases/latest/download/";
+    /// <summary>作者分支最新版直链（含 Steam 创意工坊提供商；GitHub 会自动重定向到最新 Release 的对应文件）。</summary>
+    private const string CloudRedirectDownloadBase = "https://github.com/pvzcxw/cloudRedirect/releases/latest/download/";
 
     public void RefreshCloudRedirectState()
     {
         IsCloudRedirectReady = File.Exists(CloudRedirectExePath);
         CloudRedirectStatus = IsCloudRedirectReady
-            ? $"已下载（{Path.GetFileName(CloudRedirectExePath)}）"
-            : "尚未下载，点击下方按钮从官方发布页获取";
+            ? $"已下载作者分支版（含 Steam 创意工坊提供商）"
+            : "尚未下载，点击下方按钮从作者发布页获取";
     }
 
     [RelayCommand]
