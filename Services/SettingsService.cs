@@ -32,6 +32,9 @@ public class AppSettings
 
     // 更新检查地址（GitHub Releases API / Gitee API / 通用 JSON）
     public string UpdateCheckUrl { get; set; } = "https://api.github.com/repos/duoluoyuji/XiJiaYi/releases/latest";
+
+    // 内核更新源：Official = OpenSteam001 官方版；Fork = pvzcxw 作者分支（视频配套 ost）
+    public string KernelSource { get; set; } = "Fork";
 }
 
 public interface ISettingsService

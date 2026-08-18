@@ -294,6 +294,22 @@
                             </ComboBox>
                         </ui:SettingsCard>
 
+                        <ui:SettingsCard Header="内核更新源" Margin="0,0,0,8"
+                                         Description="选择「内核管理 → 更新内核」时从哪个仓库获取（作者分支版为视频配套 ost）"
+                                         ui:ControlHelper.CornerRadius="8">
+                            <ui:SettingsCard.Background>
+                                <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.45"/>
+                            </ui:SettingsCard.Background>
+                            <ComboBox ItemsSource="{Binding KernelSourceOptions}"
+                                      SelectedValue="{Binding KernelSource}"
+                                      SelectedValuePath="Value" DisplayMemberPath="Display"
+                                      HorizontalAlignment="Left" Padding="8,4" MinWidth="220">
+                                <ComboBox.Background>
+                                    <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.45"/>
+                                </ComboBox.Background>
+                            </ComboBox>
+                        </ui:SettingsCard>
+
                         <ui:SettingsCard Header="封面CDN节点" Margin="0,0,0,8"
                                          Description="选择优先使用的封面下载节点"
                                          ui:ControlHelper.CornerRadius="8">
