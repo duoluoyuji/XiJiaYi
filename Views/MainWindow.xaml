@@ -313,7 +313,7 @@
         </Grid>
 
         <!-- ============ 内核安装遮罩层 ============ -->
-        <Grid x:Name="KernelOverlayGrid" Grid.RowSpan="2" Panel.ZIndex="210"
+        <Grid x:Name="KernelOverlayGrid" Grid.ColumnSpan="2" Grid.RowSpan="2" Panel.ZIndex="210"
               Visibility="Collapsed" Background="#A0000000" IsHitTestVisible="True">
             <Border HorizontalAlignment="Center" VerticalAlignment="Center"
                     Width="400" MinHeight="150" CornerRadius="14"
@@ -348,7 +348,7 @@
         </Grid>
 
         <!-- ============ DLC 查询遮罩层 ============ -->
-        <Grid Grid.RowSpan="2" Panel.ZIndex="200"
+        <Grid Grid.ColumnSpan="2" Grid.RowSpan="2" Panel.ZIndex="200"
               Visibility="{Binding IsDlcQueryOverlayVisible, Converter={StaticResource BoolToVisibilityConverter}}"
               Background="#A0000000" IsHitTestVisible="True">
             <Border HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -371,7 +371,7 @@
         </Grid>
 
         <!-- ============ 拖拽导入提示层 ============ -->
-        <Grid x:Name="DropHintGrid" Grid.RowSpan="2" Panel.ZIndex="220"
+        <Grid x:Name="DropHintGrid" Grid.ColumnSpan="2" Grid.RowSpan="2" Panel.ZIndex="220"
               Visibility="Collapsed" Background="#A0000000" IsHitTestVisible="False">
             <Border HorizontalAlignment="Center" VerticalAlignment="Center"
                     Width="420" MinHeight="180" CornerRadius="16"
@@ -395,7 +395,7 @@
         </Grid>
 
         <!-- ============ 授权票据拖拽导入提示层 ============ -->
-        <Grid x:Name="DropAuthHintGrid" Grid.RowSpan="2" Panel.ZIndex="221"
+        <Grid x:Name="DropAuthHintGrid" Grid.ColumnSpan="2" Grid.RowSpan="2" Panel.ZIndex="221"
               Visibility="Collapsed" Background="#A0000000" IsHitTestVisible="False">
             <Border HorizontalAlignment="Center" VerticalAlignment="Center"
                     Width="420" MinHeight="180" CornerRadius="16"
@@ -419,7 +419,7 @@
         </Grid>
 
         <!-- ============ 窗口级加载遮罩 ============ -->
-        <Border Grid.RowSpan="2" Panel.ZIndex="230" IsHitTestVisible="True" Background="#73000000">
+        <Border Grid.ColumnSpan="2" Grid.RowSpan="2" Panel.ZIndex="230" IsHitTestVisible="True" Background="#73000000">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -451,7 +451,7 @@
         </Border>
 
         <!-- ============ 加载缓慢提示浮层 ============ -->
-        <Border Grid.RowSpan="2" Panel.ZIndex="231" IsHitTestVisible="True"
+        <Border Grid.ColumnSpan="2" Grid.RowSpan="2" Panel.ZIndex="231" IsHitTestVisible="True"
                 Visibility="{Binding IsRefreshSlow, Converter={StaticResource BoolToVisibilityConverter}}"
                 Background="#A0000000">
             <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="32">

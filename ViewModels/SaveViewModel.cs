@@ -70,6 +70,9 @@ public partial class SaveViewModel : ObservableObject
     private bool _isCloudRedirectDownloading;
 
     [ObservableProperty]
+    private int _cloudRedirectDownloadProgress;
+
+    [ObservableProperty]
     private string _cloudRedirectStatus = string.Empty;
 
     [ObservableProperty]
@@ -459,6 +462,7 @@ public partial class SaveViewModel : ObservableObject
     {
         if (IsCloudRedirectDownloading) return;
         IsCloudRedirectDownloading = true;
+        CloudRedirectDownloadProgress = 0;
         try
         {
             Directory.CreateDirectory(CloudRedirectDir);
@@ -473,13 +477,15 @@ public partial class SaveViewModel : ObservableObject
             using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("XiJiaYi/1.5");
 
-            foreach (var file in files)
+            for (var i = 0; i < files.Length; i++)
             {
+                var file = files[i];
                 CloudRedirectStatus = $"正在下载 {file} ...";
                 var url = CloudRedirectDownloadBase + Uri.EscapeDataString(file);
                 var dest = Path.Combine(CloudRedirectDir, file);
                 var bytes = await client.GetByteArrayAsync(url);
                 await File.WriteAllBytesAsync(dest, bytes);
+                CloudRedirectDownloadProgress = (int)((i + 1) * 100.0 / files.Length);
             }
 
             CloudRedirectStatus = "正在校验文件完整性...";

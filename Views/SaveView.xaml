@@ -47,10 +47,12 @@
                                     Command="{Binding OpenCloudRedirectPageCommand}"/>
                         </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                            <ui:ProgressRing IsActive="True" Width="16" Height="16" VerticalAlignment="Center"
-                                             Visibility="{Binding IsCloudRedirectDownloading, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                            <TextBlock Text="{Binding CloudRedirectStatus}" FontSize="12.5" Margin="8,0,0,0"
+                        <StackPanel Margin="0,0,0,12">
+                            <ProgressBar Width="280" Height="6" HorizontalAlignment="Left"
+                                         Minimum="0" Maximum="100"
+                                         Value="{Binding CloudRedirectDownloadProgress}"
+                                         Visibility="{Binding IsCloudRedirectDownloading, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <TextBlock Text="{Binding CloudRedirectStatus}" FontSize="12.5" Margin="0,6,0,0"
                                        VerticalAlignment="Center" TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>

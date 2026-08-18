@@ -54,6 +54,9 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _kernelSource = "Fork";
 
+    [ObservableProperty]
+    private bool _compatMode;
+
     /// <summary>当前软件版本号（随构建自动更新）。</summary>
     public string CurrentVersion =>
         "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0");
@@ -121,6 +124,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         AutoCheckUpdateEnabled = _settings.AutoCheckUpdateEnabled;
         UpdateCheckUrl = UpdateService.DefaultUpdateCheckUrl;
         KernelSource = string.IsNullOrEmpty(_settings.KernelSource) ? "Fork" : _settings.KernelSource;
+        CompatMode = _settings.CompatMode;
         IsShowTrainerSections = _settings.ShowTrainerSections;
         IsShowCopyLogButton = _settings.ShowCopyLogButton;
         EnableLogging = _settings.EnableLogging;
@@ -272,6 +276,14 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         _settings.KernelSource = value;
         _settingsService.Save(_settings);
         StatusMessage = value == "Official" ? "内核更新源已切换为官方版（OpenSteam001）" : "内核更新源已切换为作者分支版（pvzcxw）";
+        LogService.Info("设置", StatusMessage);
+    }
+
+    partial void OnCompatModeChanged(bool value)
+    {
+        _settings.CompatMode = value;
+        _settingsService.Save(_settings);
+        StatusMessage = value ? "兼容模式已开启：关闭背景特效，缓解 A 卡/低配电脑拖拽卡顿" : "兼容模式已关闭";
         LogService.Info("设置", StatusMessage);
     }
 
