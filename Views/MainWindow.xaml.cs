@@ -168,6 +168,10 @@ public partial class MainWindow : Window
                 UpdateBackdropTheme(ThemeManager.Current.ActualApplicationTheme == ApplicationTheme.Light);
                 UpdateBackdrop(svm.SelectedBackdrop);
                 break;
+            case nameof(SettingsViewModel.CompatMode):
+                // 兼容模式：忽略所选背景特效，直接使用纯色背景，缓解 A 卡/低配电脑拖拽卡顿
+                UpdateBackdrop(svm.CompatMode ? "None" : svm.SelectedBackdrop);
+                break;
         }
     }
 
@@ -197,6 +201,8 @@ public partial class MainWindow : Window
         var settings = _settingsService.Load();
         UpdateBackdropTheme(ThemeManager.Current.ActualApplicationTheme == ApplicationTheme.Light);
         UpdateBackdrop(settings.SelectedBackdrop);
+        if (settings.CompatMode)
+            UpdateBackdrop("None");
         _settingsViewModel.SelectedBackdrop = settings.SelectedBackdrop;
 
         // 启动时静默检查更新（有新版本会弹窗提示，失败不影响使用）
@@ -696,15 +702,43 @@ public partial class MainWindow : Window
         var localVersion = await _openSteamToolService.GetLocalVersionAsync() ?? "未知";
         var localDisplay = localVersion;
 
-        try
+        (string version, string downloadUrl, string releaseUrl)? remote = null;
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            var (remoteVersion, downloadUrl, releaseUrl) = await _openSteamToolService.GetRemoteInfoAsync();
-            if (string.IsNullOrEmpty(downloadUrl))
+            try
             {
-                await ShowModernDialogAsync("错误", "无法获取最新版本信息");
-                return;
+                var info = await _openSteamToolService.GetRemoteInfoAsync();
+                if (!string.IsNullOrEmpty(info.downloadUrl))
+                {
+                    remote = info;
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Warn("内核", $"获取远程内核信息失败(第{attempt + 1}次): {ex.Message}");
             }
 
+            if (attempt < 2)
+            {
+                var retry = await ShowModernConfirmAsync(
+                    "获取失败",
+                    $"无法从更新源获取内核版本信息（当前本地版本：{localDisplay}）。\n\n" +
+                    "可能是网络波动或 GitHub 服务不稳定，是否重试？",
+                    "重试");
+                if (!retry) return;
+            }
+        }
+
+        if (remote == null)
+        {
+            await ShowModernDialogAsync("错误", $"多次尝试后仍无法获取内核版本信息（本地版本：{localDisplay}）。\n\n请检查网络后重试。");
+            return;
+        }
+
+        var (remoteVersion, downloadUrl, releaseUrl) = remote.Value;
+        try
+        {
             if (localVersion != "未知")
             {
                 var localVer = Version.TryParse(localVersion, out var lv) ? lv : null;

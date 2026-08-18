@@ -35,6 +35,9 @@ public class AppSettings
 
     // 内核更新源：Official = OpenSteam001 官方版；Fork = pvzcxw 作者分支（视频配套 ost）
     public string KernelSource { get; set; } = "Fork";
+
+    // 兼容模式：A 卡/低配电脑拖拽卡顿时开启，关闭亚克力等背景特效
+    public bool CompatMode { get; set; }
 }
 
 public interface ISettingsService

@@ -227,6 +227,16 @@
                               </ComboBox>
                         </ui:SettingsCard>
 
+                        <ui:SettingsCard Header="兼容模式（A 卡/低配）" Margin="0,0,0,8"
+                                         Description="关闭亚克力等背景特效，缓解部分显卡（如 A 卡）上窗口拖拽卡顿"
+                                         ui:ControlHelper.CornerRadius="8">
+                            <ui:SettingsCard.Background>
+                                <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.45"/>
+                            </ui:SettingsCard.Background>
+                            <ui:ToggleSwitch IsOn="{Binding CompatMode}"
+                                             OnContent="开" OffContent="关"/>
+                        </ui:SettingsCard>
+
                         <ui:SettingsCard Header="悬浮按钮" Margin="0,0,0,8"
                                          Description="右下角悬浮功能按钮的显示开关"
                                          ui:ControlHelper.CornerRadius="8">
