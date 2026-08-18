@@ -22,7 +22,9 @@ public class OpenSteamToolService : IOpenSteamToolService
 {
     private readonly IHttpClientProvider _httpClientProvider;
     private readonly ISteamPathService _steamPathService;
-    private const string GitHubLatestUrl = "https://api.github.com/repos/OpenSteam001/OpenSteamTool/releases/latest";
+    private readonly ISettingsService _settingsService;
+    private const string OfficialRepo = "OpenSteam001/OpenSteamTool";
+    private const string ForkRepo = "pvzcxw/OpenSteamTool";
     private static readonly string[] RequiredDlls = ["dwmapi.dll", "xinput1_4.dll", "OpenSteamTool.dll"];
     private static readonly Dictionary<string, string> EmbeddedVersionMap = new()
     {
@@ -42,11 +44,18 @@ public class OpenSteamToolService : IOpenSteamToolService
     };
     private static readonly byte[] VersionMarker = [0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00];
 
-    public OpenSteamToolService(ISteamPathService steamPathService, IHttpClientProvider httpClientProvider)
+    public OpenSteamToolService(ISteamPathService steamPathService, IHttpClientProvider httpClientProvider, ISettingsService settingsService)
     {
         _steamPathService = steamPathService;
         _httpClientProvider = httpClientProvider;
+        _settingsService = settingsService;
     }
+
+    /// <summary>当前内核更新源（Official 官方版 / Fork 作者分支版）。</summary>
+    private string CurrentRepo =>
+        string.Equals(_settingsService.Load().KernelSource, "Official", StringComparison.OrdinalIgnoreCase)
+            ? OfficialRepo
+            : ForkRepo;
 
     private static void ConfigureHeaders(HttpClient client)
     {
@@ -105,16 +114,18 @@ public class OpenSteamToolService : IOpenSteamToolService
 
     public async Task<(string version, string downloadUrl, string releaseUrl)> GetRemoteInfoAsync()
     {
+        var repo = CurrentRepo;
+        var apiUrl = $"https://api.github.com/repos/{repo}/releases/latest";
         var json = await _httpClientProvider.SendWithProxyRetryAsync(
             "open-steam-tool",
             TimeSpan.FromSeconds(120),
-            client => client.GetStringAsync(GitHubLatestUrl),
+            client => client.GetStringAsync(apiUrl),
             ConfigureHeaders);
         using var doc = JsonDocument.Parse(json);
         var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "0.0.0";
         var releaseUrl = doc.RootElement.TryGetProperty("html_url", out var htmlUrl)
             ? htmlUrl.GetString() ?? ""
-            : $"https://github.com/OpenSteam001/OpenSteamTool/releases/tag/{tag}";
+            : $"https://github.com/{repo}/releases/tag/{tag}";
         var downloadUrl = "";
         if (doc.RootElement.TryGetProperty("assets", out var assets))
         {
