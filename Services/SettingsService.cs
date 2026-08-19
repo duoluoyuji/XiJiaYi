@@ -38,6 +38,9 @@ public class AppSettings
 
     // 兼容模式：A 卡/低配电脑拖拽卡顿时开启，关闭亚克力等背景特效
     public bool CompatMode { get; set; }
+
+    // 自定义游戏存档目录：AppID -> 目录列表（解决存档不在 Steam userdata 里的游戏）
+    public Dictionary<string, List<string>> CustomSaveFolders { get; set; } = new();
 }
 
 public interface ISettingsService

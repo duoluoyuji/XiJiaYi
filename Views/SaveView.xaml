@@ -109,10 +109,50 @@
                                     Command="{Binding RefreshCommand}"/>
                         </StackPanel>
 
+                        <TextBlock Text="Steam 账号" FontSize="12" Margin="0,12,0,6"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                        <ComboBox ItemsSource="{Binding Accounts}" SelectedItem="{Binding SelectedAccount}"
+                                  MinWidth="280" MaxWidth="420" Padding="10,7"
+                                  HorizontalAlignment="Left">
+                            <ComboBox.Background>
+                                <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.5"/>
+                            </ComboBox.Background>
+                        </ComboBox>
+
                         <TextBlock Text="{Binding SelectedSave.InfoText, StringFormat=存档信息：{0}}"
                                    FontSize="12.5" Margin="0,10,0,0"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,4">
+                            <TextBlock Text="自定义存档目录" FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                            <Button Content="添加目录" Margin="12,0,0,0" Padding="12,5" FontSize="12"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding AddCustomFolderCommand}"/>
+                        </StackPanel>
+                        <TextBlock Text="用于存档不在 Steam userdata 里的游戏（如 Documents / AppData 下的存档文件夹）"
+                                   FontSize="11" Margin="0,0,0,6"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"/>
+                        <ItemsControl ItemsSource="{Binding SelectedSaveCustomFolders}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2,0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding}" FontSize="12" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <Button Grid.Column="1" Content="移除" Padding="10,3" FontSize="11"
+                                                Margin="8,0,0,0"
+                                                Command="{Binding DataContext.RemoveCustomFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                         <TextBlock Text="{Binding SelectedSave.AccountName, StringFormat=Steam 账号：{0}}"
                                    FontSize="12.5" Margin="0,4,0,0"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"

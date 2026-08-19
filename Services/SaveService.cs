@@ -74,7 +74,8 @@ public class SaveService : ISaveService
         var userdata = Path.Combine(steamPath, "userdata");
         if (!Directory.Exists(userdata)) return result;
 
-        var accountNames = ReadAccountNames(steamPath);
+        var (accountNames, currentId64) = ReadAccountNames(steamPath);
+        var customFolders = _settingsService.Load().CustomSaveFolders ?? new Dictionary<string, List<string>>();
 
         foreach (var accountDir in Directory.GetDirectories(userdata))
         {
@@ -84,15 +85,36 @@ public class SaveService : ISaveService
             var (id3, id64) = ids.Value;
             accountNames.TryGetValue(id64, out var accountNameRaw);
             var accountName = accountNameRaw ?? string.Empty;
+            var isCurrent = string.Equals(id64, currentId64, StringComparison.Ordinal);
 
             foreach (var appDir in Directory.GetDirectories(accountDir))
             {
                 var remote = Path.Combine(appDir, "remote");
-                if (!Directory.Exists(remote)) continue;
                 if (!int.TryParse(Path.GetFileName(appDir), out var appId)) continue;
 
-                var files = Directory.GetFiles(remote, "*", SearchOption.AllDirectories);
-                if (files.Length == 0) continue;
+                // 扫描范围：remote（Steam 云存档）、ugc（创意工坊内容）、local（部分游戏本地云目录）
+                var roots = new List<string>();
+                foreach (var sub in new[] { "remote", "ugc", "local" })
+                {
+                    var p = Path.Combine(appDir, sub);
+                    if (Directory.Exists(p) && Directory.GetFiles(p, "*", SearchOption.AllDirectories).Length > 0)
+                        roots.Add(p);
+                }
+
+                // 用户手动添加的自定义存档目录（适用于存档在 Documents/AppData 等的游戏）
+                if (customFolders.TryGetValue(appId.ToString(), out var customList))
+                {
+                    foreach (var custom in customList)
+                    {
+                        if (Directory.Exists(custom) &&
+                            Directory.GetFiles(custom, "*", SearchOption.AllDirectories).Length > 0)
+                            roots.Add(custom);
+                    }
+                }
+
+                if (roots.Count == 0) continue;
+
+                var files = roots.SelectMany(r => Directory.GetFiles(r, "*", SearchOption.AllDirectories)).ToArray();
 
                 long total = 0;
                 var last = DateTime.MinValue;
@@ -113,7 +135,11 @@ public class SaveService : ISaveService
                     GameName = ResolveGameName(appId, steamPath),
                     SteamId3 = id3,
                     AccountName = accountName,
-                    RemotePath = remote,
+                    IsCurrentAccount = isCurrent,
+                    SaveRoots = roots,
+                    RemotePath = roots.FirstOrDefault(r =>
+                        Path.GetFileName(r.TrimEnd('\\', '/')).Equals("remote", StringComparison.OrdinalIgnoreCase))
+                        ?? roots[0],
                     FileCount = files.Length,
                     TotalBytes = total,
                     LastWriteTime = last
@@ -122,16 +148,18 @@ public class SaveService : ISaveService
         }
 
         return result
-            .OrderBy(s => s.GameName, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(s => s.IsCurrentAccount)
+            .ThenBy(s => s.GameName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(s => s.AppId)
             .ToList();
     }
 
-    private Dictionary<string, string> ReadAccountNames(string steamPath)
+    private (Dictionary<string, string> Names, string CurrentId64) ReadAccountNames(string steamPath)
     {
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        var currentId64 = string.Empty;
         var vdfPath = Path.Combine(steamPath, "config", "loginusers.vdf");
-        if (!File.Exists(vdfPath)) return map;
+        if (!File.Exists(vdfPath)) return (map, currentId64);
         try
         {
             var content = File.ReadAllText(vdfPath);
@@ -141,13 +169,15 @@ public class SaveService : ISaveService
                 var name = GetVdfValue(body, "PersonaName") ?? GetVdfValue(body, "AccountName");
                 if (!string.IsNullOrEmpty(name))
                     map[block.Groups[1].Value] = name;
+                if (GetVdfValue(body, "MostRecent") == "1")
+                    currentId64 = block.Groups[1].Value;
             }
         }
         catch (Exception ex)
         {
             LogService.Warn("存档", $"读取 loginusers.vdf 失败: {ex.Message}");
         }
-        return map;
+        return (map, currentId64);
     }
 
     private static string? GetVdfValue(string block, string key)
@@ -201,13 +231,18 @@ public class SaveService : ISaveService
 
     public LocalBackupEntry BackupToLocal(SaveGameEntry entry)
     {
-        var remote = ValidateRemotePath(entry);
-        if (!Directory.Exists(remote))
+        var roots = entry.SaveRoots.Count > 0 ? entry.SaveRoots : new List<string> { entry.RemotePath };
+        roots = roots.Where(Directory.Exists).ToList();
+        if (roots.Count == 0)
             throw new InvalidOperationException("存档目录不存在，无法备份。");
 
         var stamp = DateTime.Now;
         var dest = Path.Combine(LocalBackupRoot, entry.AppId.ToString(), stamp.ToString("yyyyMMdd_HHmmss"));
-        CopyDirectory(remote, dest);
+        for (var i = 0; i < roots.Count; i++)
+        {
+            var name = $"{i}_{SanitizeName(Path.GetFileName(roots[i].TrimEnd('\\', '/')))}";
+            CopyDirectory(roots[i], Path.Combine(dest, name));
+        }
 
         var files = Directory.GetFiles(dest, "*", SearchOption.AllDirectories);
         var total = files.Sum(f => new FileInfo(f).Length);
@@ -249,14 +284,40 @@ public class SaveService : ISaveService
 
     public void RestoreBackup(SaveGameEntry entry, string backupDir)
     {
-        var remote = ValidateRemotePath(entry);
         if (!Directory.Exists(backupDir))
             throw new InvalidOperationException("备份目录不存在。");
 
         BackupToLocal(entry); // 恢复前自动备份当前存档，防止误操作
-        ClearDirectory(remote);
-        CopyDirectory(backupDir, remote);
+
+        var roots = entry.SaveRoots.Count > 0 ? entry.SaveRoots : new List<string> { entry.RemotePath };
+        roots = roots.Where(Directory.Exists).ToList();
+        var backupSubs = Directory.GetDirectories(backupDir);
+        var hasTopLevelFiles = Directory.GetFiles(backupDir, "*", SearchOption.TopDirectoryOnly).Length > 0;
+
+        for (var i = 0; i < roots.Count; i++)
+        {
+            var name = $"{i}_{SanitizeName(Path.GetFileName(roots[i].TrimEnd('\\', '/')))}";
+            var sub = backupSubs.FirstOrDefault(d =>
+                Path.GetFileName(d).StartsWith($"{i}_", StringComparison.OrdinalIgnoreCase));
+            if (sub != null)
+            {
+                ClearDirectory(roots[i]);
+                CopyDirectory(sub, roots[i]);
+            }
+            else if (i == 0 && hasTopLevelFiles)
+            {
+                // 旧版备份（单目录直接存放文件）
+                ClearDirectory(roots[i]);
+                CopyDirectory(backupDir, roots[i]);
+            }
+        }
         LogService.Info("存档", $"已从本地备份恢复 {entry.GameName}({entry.AppId}): {backupDir}");
+    }
+
+    private static string SanitizeName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return string.Concat((name ?? "save").Select(c => invalid.Contains(c) ? '_' : c));
     }
 
     // ============ WebDAV 云同步 ============
@@ -269,13 +330,18 @@ public class SaveService : ISaveService
         return (settings.WebDavUrl.Trim().TrimEnd('/') + "/", settings.WebDavUser, settings.WebDavPassword);
     }
 
-    private string CloudFolderRelative(int appId) => $"喜加一存档/{appId}";
+    /// <summary>云端目录按账号隔离：喜加一存档/&lt;账号ID&gt;/&lt;AppID&gt;（切换账号后互不干扰）。</summary>
+    private string CloudFolderRelative(SaveGameEntry entry) => $"喜加一存档/{entry.SteamId3}/{entry.AppId}";
+
+    /// <summary>旧版云端目录（未按账号隔离），仅用于读取历史备份。</summary>
+    private static string LegacyCloudFolderRelative(int appId) => $"喜加一存档/{appId}";
 
     public async Task<string> UploadToCloudAsync(SaveGameEntry entry, IProgress<string>? progress, CancellationToken ct)
     {
         var (baseUrl, user, password) = GetWebDavConfig();
-        var remote = ValidateRemotePath(entry);
-        if (!Directory.Exists(remote))
+        var roots = entry.SaveRoots.Count > 0 ? entry.SaveRoots : new List<string> { entry.RemotePath };
+        roots = roots.Where(Directory.Exists).ToList();
+        if (roots.Count == 0)
             throw new InvalidOperationException("存档目录不存在。");
 
         Directory.CreateDirectory(CloudCacheRoot);
@@ -283,17 +349,32 @@ public class SaveService : ISaveService
         if (File.Exists(zipPath)) File.Delete(zipPath);
 
         progress?.Report("正在压缩存档...");
-        await Task.Run(() => ZipFile.CreateFromDirectory(remote, zipPath, CompressionLevel.Optimal, false), ct);
+        var stageDir = Path.Combine(CloudCacheRoot, $"stage_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(stageDir);
+        for (var i = 0; i < roots.Count; i++)
+        {
+            var name = $"{i}_{SanitizeName(Path.GetFileName(roots[i].TrimEnd('\\', '/')))}";
+            CopyDirectory(roots[i], Path.Combine(stageDir, name));
+        }
+        try
+        {
+            await Task.Run(() => ZipFile.CreateFromDirectory(stageDir, zipPath, CompressionLevel.Optimal, false), ct);
+        }
+        finally
+        {
+            try { Directory.Delete(stageDir, true); } catch { }
+        }
 
         try
         {
             using var client = CreateWebDavClient(user, password);
             var baseUri = new Uri(baseUrl);
-            var folderUri = new Uri(baseUri, CloudFolderRelative(entry.AppId) + "/");
-            await EnsureFolderChainAsync(client, baseUri, CloudFolderRelative(entry.AppId), ct);
+            var folderRel = CloudFolderRelative(entry);
+            var folderUri = new Uri(baseUri, folderRel + "/");
+            await EnsureFolderChainAsync(client, baseUri, folderRel, ct);
 
             progress?.Report($"正在上传 {Path.GetFileName(zipPath)}...");
-            var fileUri = new Uri(baseUri, CloudFolderRelative(entry.AppId) + "/" + Uri.EscapeDataString(Path.GetFileName(zipPath)));
+            var fileUri = new Uri(baseUri, folderRel + "/" + Uri.EscapeDataString(Path.GetFileName(zipPath)));
             using var stream = File.OpenRead(zipPath);
             using var content = new StreamContent(stream);
             content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
@@ -316,7 +397,21 @@ public class SaveService : ISaveService
         var (baseUrl, user, password) = GetWebDavConfig();
         using var client = CreateWebDavClient(user, password);
         var baseUri = new Uri(baseUrl);
-        var folderUri = new Uri(baseUri, CloudFolderRelative(entry.AppId) + "/");
+
+        // 优先当前账号目录；若为空再读旧版目录（历史备份仍可下载恢复）
+        var currentRel = CloudFolderRelative(entry);
+        result = await ListCloudFolderAsync(client, baseUri, currentRel, ct);
+        if (result.Count == 0)
+            result = await ListCloudFolderAsync(client, baseUri, LegacyCloudFolderRelative(entry.AppId), ct);
+
+        return result.OrderByDescending(b => b.Modified ?? DateTime.MinValue).ToList();
+    }
+
+    private static async Task<List<CloudBackupEntry>> ListCloudFolderAsync(
+        HttpClient client, Uri baseUri, string folderRel, CancellationToken ct)
+    {
+        var result = new List<CloudBackupEntry>();
+        var folderUri = new Uri(baseUri, folderRel + "/");
 
         var request = new HttpRequestMessage(new HttpMethod("PROPFIND"), folderUri);
         request.Headers.Add("Depth", "1");
@@ -347,18 +442,25 @@ public class SaveService : ISaveService
             if (DateTime.TryParse(response.Descendants(ns + "getlastmodified").FirstOrDefault()?.Value, out var mod))
                 modified = mod.ToLocalTime();
 
-            result.Add(new CloudBackupEntry { FileName = fileName, Size = size, Modified = modified });
+            result.Add(new CloudBackupEntry
+            {
+                FileName = fileName,
+                FolderPath = folderRel,
+                Size = size,
+                Modified = modified
+            });
         }
-
-        return result.OrderByDescending(b => b.Modified ?? DateTime.MinValue).ToList();
+        return result;
     }
 
     public async Task<SaveImportResult> DownloadCloudBackupAsync(SaveGameEntry entry, CloudBackupEntry item, IProgress<string>? progress, CancellationToken ct)
     {
         var (baseUrl, user, password) = GetWebDavConfig();
-        var remote = ValidateRemotePath(entry);
         var baseUri = new Uri(baseUrl);
-        var fileUri = new Uri(baseUri, CloudFolderRelative(entry.AppId) + "/" + Uri.EscapeDataString(item.FileName));
+        var folderRel = string.IsNullOrEmpty(item.FolderPath)
+            ? CloudFolderRelative(entry)
+            : item.FolderPath;
+        var fileUri = new Uri(baseUri, folderRel + "/" + Uri.EscapeDataString(item.FileName));
 
         Directory.CreateDirectory(CloudCacheRoot);
         var zipPath = Path.Combine(CloudCacheRoot, item.FileName);
@@ -387,20 +489,40 @@ public class SaveService : ISaveService
 
     private async Task<SaveImportResult> ApplyZipToRemoteAsync(SaveGameEntry entry, string zipPath, IProgress<string>? progress, CancellationToken ct)
     {
-        var remote = ValidateRemotePath(entry);
         var extractDir = Path.Combine(ImportTempRoot, entry.AppId.ToString(), "cloud");
         if (Directory.Exists(extractDir)) Directory.Delete(extractDir, true);
         Directory.CreateDirectory(extractDir);
 
         await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, extractDir), ct);
-        var contentRoot = FindContentRoot(extractDir);
 
         var backup = BackupToLocal(entry);
         progress?.Report("已自动备份当前存档");
 
-        ClearDirectory(remote);
-        CopyDirectory(contentRoot, remote);
-        var count = CountFiles(remote);
+        var roots = entry.SaveRoots.Count > 0 ? entry.SaveRoots : new List<string> { entry.RemotePath };
+        roots = roots.Where(Directory.Exists).ToList();
+        var extractSubs = Directory.GetDirectories(extractDir);
+        var hasTopLevelFiles = Directory.GetFiles(extractDir, "*", SearchOption.TopDirectoryOnly).Length > 0;
+        var restoreRoot = roots[0];
+
+        for (var i = 0; i < roots.Count; i++)
+        {
+            var name = $"{i}_{SanitizeName(Path.GetFileName(roots[i].TrimEnd('\\', '/')))}";
+            var sub = extractSubs.FirstOrDefault(d =>
+                Path.GetFileName(d).StartsWith($"{i}_", StringComparison.OrdinalIgnoreCase));
+            if (sub != null)
+            {
+                ClearDirectory(roots[i]);
+                CopyDirectory(sub, roots[i]);
+            }
+            else if (i == 0 && hasTopLevelFiles)
+            {
+                ClearDirectory(roots[i]);
+                CopyDirectory(extractDir, roots[i]);
+            }
+            restoreRoot = roots[i];
+        }
+
+        var count = CountFiles(restoreRoot);
         LogService.Info("存档", $"已从云端恢复 {entry.GameName}({entry.AppId}): {Path.GetFileName(zipPath)}");
         return new SaveImportResult(count, 0, 0, backup.Path,
             $"已恢复云端备份「{Path.GetFileName(zipPath)}」\n共 {count} 个文件\n恢复前已自动备份当前存档。");
