@@ -79,6 +79,10 @@ public class SaveService : ISaveService
 
         var (accountNames, currentId64) = ReadAccountNames(steamPath);
         var customFolders = _settingsService.Load().CustomSaveFolders ?? new Dictionary<string, List<string>>();
+        var currentId3 = string.Empty;
+        if (!string.IsNullOrEmpty(currentId64) && ulong.TryParse(currentId64, out var currentId64Val) &&
+            currentId64Val >= SteamIdUtils.SteamId64Base)
+            currentId3 = (currentId64Val - SteamIdUtils.SteamId64Base).ToString();
 
         foreach (var accountDir in Directory.GetDirectories(userdata))
         {
@@ -149,6 +153,48 @@ public class SaveService : ISaveService
                     LastWriteTime = last
                 });
             }
+        }
+
+        // 只配置了自定义存档目录、但 userdata 里没有对应 AppID 的游戏（典型假入库游戏），也生成条目
+        foreach (var kv in customFolders)
+        {
+            if (!int.TryParse(kv.Key, out var appId)) continue;
+            if (result.Any(s => s.AppId == appId)) continue;
+            var roots = kv.Value
+                .Where(Directory.Exists)
+                .Where(p => Directory.GetFiles(p, "*", SearchOption.AllDirectories).Length > 0)
+                .ToList();
+            if (roots.Count == 0) continue;
+
+            var files = roots.SelectMany(r => Directory.GetFiles(r, "*", SearchOption.AllDirectories)).ToArray();
+            long total = 0;
+            var last = DateTime.MinValue;
+            foreach (var file in files)
+            {
+                try
+                {
+                    var fi = new FileInfo(file);
+                    total += fi.Length;
+                    if (fi.LastWriteTime > last) last = fi.LastWriteTime;
+                }
+                catch { }
+            }
+
+            result.Add(new SaveGameEntry
+            {
+                AppId = appId,
+                GameName = ResolveGameName(appId, steamPath),
+                SteamId3 = currentId3,
+                AccountName = !string.IsNullOrEmpty(currentId64) && accountNames.TryGetValue(currentId64, out var curName)
+                    ? curName
+                    : string.Empty,
+                IsCurrentAccount = !string.IsNullOrEmpty(currentId3),
+                SaveRoots = roots,
+                RemotePath = roots[0],
+                FileCount = files.Length,
+                TotalBytes = total,
+                LastWriteTime = last == DateTime.MinValue ? DateTime.Now : last
+            });
         }
 
         return result

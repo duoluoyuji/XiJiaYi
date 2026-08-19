@@ -189,9 +189,19 @@
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
-                                <Button Content="绑定到选中游戏" Padding="14,7" FontSize="12" FontWeight="SemiBold"
-                                        Margin="0,8,0,0" HorizontalAlignment="Left"
-                                        Command="{Binding BindSaveCandidateCommand}"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="AppID" FontSize="12" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                    <TextBox Text="{Binding BindAppId, UpdateSourceTrigger=PropertyChanged}"
+                                             Width="120" Margin="8,0,0,0" Padding="8,5" FontSize="12"
+                                             ToolTip="游戏不在列表里？填它的 AppID（lua 文件名就是 AppID）"/>
+                                    <Button Content="绑定存档目录到游戏" Padding="14,7" FontSize="12" FontWeight="SemiBold"
+                                            Margin="10,0,0,0"
+                                            Command="{Binding BindSaveCandidateCommand}"/>
+                                </StackPanel>
+                                <TextBlock Text="已选中列表中的游戏时可不填 AppID，直接绑定到它；假入库游戏不在列表时，填 lua 文件名那个数字即可"
+                                           FontSize="11" Margin="0,6,0,0"
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
                         <TextBlock Text="{Binding SelectedSave.AccountName, StringFormat=Steam 账号：{0}}"

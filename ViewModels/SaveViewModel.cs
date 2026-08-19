@@ -99,6 +99,9 @@ public partial class SaveViewModel : ObservableObject
     [ObservableProperty]
     private string _saveScanStatus = string.Empty;
 
+    [ObservableProperty]
+    private string _bindAppId = string.Empty;
+
     private bool _suppressSelectionHandler;
     private List<SaveGameEntry> _allSaveEntries = new();
 
@@ -381,27 +384,56 @@ public partial class SaveViewModel : ObservableObject
     [RelayCommand]
     private async Task BindSaveCandidateAsync()
     {
-        var entry = SelectedSave;
         var candidate = SelectedSaveCandidate;
-        if (entry == null || candidate == null)
+        if (candidate == null)
         {
-            await ShowDialogAsync("提示", "请先选择游戏，并在候选列表中选中一个存档目录。");
+            await ShowDialogAsync("提示", "请先在候选列表中选中一个存档目录。");
+            return;
+        }
+
+        var appId = 0;
+        var fromManual = !string.IsNullOrWhiteSpace(BindAppId);
+        if (fromManual)
+        {
+            if (!int.TryParse(BindAppId.Trim(), out appId) || appId <= 0)
+            {
+                await ShowDialogAsync("提示", "填写的 AppID 无效，请输入数字（lua 文件名就是 AppID）。");
+                return;
+            }
+        }
+        else if (SelectedSave != null)
+        {
+            appId = SelectedSave.AppId;
+        }
+        else
+        {
+            await ShowDialogAsync("提示", "请先在上方选中游戏，或在「AppID」框里填写目标游戏 AppID。");
             return;
         }
 
         var settings = _settingsService.Load();
-        if (!settings.CustomSaveFolders.TryGetValue(entry.AppId.ToString(), out var list))
+        if (!settings.CustomSaveFolders.TryGetValue(appId.ToString(), out var list))
         {
             list = new List<string>();
-            settings.CustomSaveFolders[entry.AppId.ToString()] = list;
+            settings.CustomSaveFolders[appId.ToString()] = list;
         }
         if (!list.Contains(candidate.Path, StringComparer.OrdinalIgnoreCase))
             list.Add(candidate.Path);
         _settingsService.Save(settings);
 
-        StatusMessage = $"已把 {candidate.Path} 绑定到 {entry.GameName}";
-        LogService.Info("存档", $"绑定存档目录: {entry.AppId} -> {candidate.Path}");
+        StatusMessage = $"已把 {candidate.Path} 绑定到 AppID {appId}";
+        LogService.Info("存档", $"绑定存档目录: {appId} -> {candidate.Path}");
         await RefreshAsync();
+
+        // 绑定后自动选中该游戏，方便直接查看/上传
+        _suppressSelectionHandler = true;
+        SelectedSave = SaveGames.FirstOrDefault(g => g.AppId == appId);
+        _suppressSelectionHandler = false;
+        if (SelectedSave != null)
+        {
+            RefreshCustomFolders(SelectedSave);
+            await RefreshBackupListsAsync(SelectedSave);
+        }
     }
 
     private static List<SaveCandidate> ScanCommonSaveLocations()
