@@ -100,3 +100,17 @@ public partial class CloudBackupEntry : ObservableObject
     public string DisplayName =>
         $"{FileName} · {SaveGameEntry.FormatSize(Size)}{(Modified.HasValue ? $" · {Modified:yyyy-MM-dd HH:mm}" : "")}";
 }
+
+/// <summary>常见存档位置扫描出的候选目录。</summary>
+public sealed class SaveCandidate
+{
+    public string Path { get; init; } = string.Empty;
+    public int FileCount { get; init; }
+    public long TotalBytes { get; init; }
+    public DateTime LastWriteTime { get; init; }
+
+    public string DisplayName => $"{Path}";
+
+    public string InfoText =>
+        $"{FileCount} 个文件 · {SaveGameEntry.FormatSize(TotalBytes)} · 最后修改 {LastWriteTime:yyyy-MM-dd HH:mm}";
+}
