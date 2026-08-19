@@ -87,6 +87,18 @@ public partial class SaveViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<string> _selectedSaveCustomFolders = new();
 
+    [ObservableProperty]
+    private ObservableCollection<SaveCandidate> _saveCandidates = new();
+
+    [ObservableProperty]
+    private SaveCandidate? _selectedSaveCandidate;
+
+    [ObservableProperty]
+    private bool _isScanningSaveLocations;
+
+    [ObservableProperty]
+    private string _saveScanStatus = string.Empty;
+
     private bool _suppressSelectionHandler;
     private List<SaveGameEntry> _allSaveEntries = new();
 
@@ -335,6 +347,175 @@ public partial class SaveViewModel : ObservableObject
             _settingsService.Save(settings);
             StatusMessage = $"已移除存档目录：{folder}";
             await RefreshAsync();
+        }
+    }
+
+    // ============ 常见存档位置扫描助手 ============
+
+    [RelayCommand]
+    private async Task ScanSaveLocationsAsync()
+    {
+        if (IsScanningSaveLocations) return;
+        IsScanningSaveLocations = true;
+        SaveScanStatus = "正在扫描常见存档位置（Documents / My Games / Saved Games / AppData）...";
+        try
+        {
+            var candidates = await Task.Run(() => ScanCommonSaveLocations());
+            SaveCandidates = new ObservableCollection<SaveCandidate>(candidates);
+            SelectedSaveCandidate = SaveCandidates.FirstOrDefault();
+            SaveScanStatus = candidates.Count == 0
+                ? "未发现候选存档目录，可稍后重试或手动添加"
+                : $"发现 {candidates.Count} 个候选目录，选中后点「绑定到选中游戏」";
+        }
+        catch (Exception ex)
+        {
+            SaveScanStatus = $"扫描失败：{ex.Message}";
+            LogService.Error("存档", $"扫描常见位置失败: {ex}");
+        }
+        finally
+        {
+            IsScanningSaveLocations = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task BindSaveCandidateAsync()
+    {
+        var entry = SelectedSave;
+        var candidate = SelectedSaveCandidate;
+        if (entry == null || candidate == null)
+        {
+            await ShowDialogAsync("提示", "请先选择游戏，并在候选列表中选中一个存档目录。");
+            return;
+        }
+
+        var settings = _settingsService.Load();
+        if (!settings.CustomSaveFolders.TryGetValue(entry.AppId.ToString(), out var list))
+        {
+            list = new List<string>();
+            settings.CustomSaveFolders[entry.AppId.ToString()] = list;
+        }
+        if (!list.Contains(candidate.Path, StringComparer.OrdinalIgnoreCase))
+            list.Add(candidate.Path);
+        _settingsService.Save(settings);
+
+        StatusMessage = $"已把 {candidate.Path} 绑定到 {entry.GameName}";
+        LogService.Info("存档", $"绑定存档目录: {entry.AppId} -> {candidate.Path}");
+        await RefreshAsync();
+    }
+
+    private static List<SaveCandidate> ScanCommonSaveLocations()
+    {
+        var roots = new List<string>();
+        var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        if (!string.IsNullOrEmpty(docs))
+        {
+            roots.Add(docs);
+            roots.Add(Path.Combine(docs, "My Games"));
+        }
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrEmpty(profile))
+            roots.Add(Path.Combine(profile, "Saved Games"));
+        roots.Add(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+        roots.Add(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+
+        var exclude = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "microsoft", "windows", "adobe", "google", "mozilla", "edge", "tencent", "wechat", "weixin", "qq",
+            "qqex", "cache", "caches", "logs", "log", "temp", "tmp", "crashdumps", "package cache", "nuget", "pip",
+            "codex", "programs", "npm", ".git", ".cache", "nvidia", "intel", "onedrive", "battle.net", "epic games",
+            "roaming", "local", "locallow", "low", "telegram", "discord", "obs-studio", "steam", "ubisoft game launcher"
+        };
+        var strongExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".sav", ".save", ".sol", ".sfs", ".slot", ".profile", ".savegame", ".prf", ".dat0", ".slot0"
+        };
+        for (var i = 0; i <= 9; i++)
+            strongExts.Add($".sav{i}");
+
+        var genericExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".dat", ".bin", ".json", ".cfg", ".config", ".xml", ".ini", ".txt"
+        };
+
+        var results = new List<SaveCandidate>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Walk(string dir, int depth)
+        {
+            if (depth > 3 || results.Count >= 150) return;
+            string[] subs;
+            try { subs = Directory.GetDirectories(dir); }
+            catch { return; }
+
+            foreach (var sub in subs)
+            {
+                var name = Path.GetFileName(sub);
+                if (string.IsNullOrEmpty(name) || name.StartsWith('.') || exclude.Contains(name))
+                    continue;
+
+                if (depth >= 1)
+                {
+                    var candidate = Evaluate(sub, strongExts, genericExts);
+                    if (candidate != null && seen.Add(sub))
+                        results.Add(candidate);
+                }
+                Walk(sub, depth + 1);
+            }
+        }
+
+        foreach (var root in roots)
+        {
+            if (string.IsNullOrEmpty(root) || !Directory.Exists(root)) continue;
+            Walk(root, 0);
+        }
+
+        return results
+            .OrderByDescending(c => c.LastWriteTime)
+            .Take(150)
+            .ToList();
+    }
+
+    private static SaveCandidate? Evaluate(
+        string dir, HashSet<string> strongExts, HashSet<string> genericExts)
+    {
+        try
+        {
+            var files = Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly);
+            if (files.Length == 0 || files.Length > 2000) return null;
+
+            var strong = 0;
+            var recentGeneric = 0;
+            long total = 0;
+            var last = DateTime.MinValue;
+            var now = DateTime.Now;
+
+            foreach (var file in files)
+            {
+                var fi = new FileInfo(file);
+                total += fi.Length;
+                if (fi.LastWriteTime > last) last = fi.LastWriteTime;
+                var ext = fi.Extension;
+                if (strongExts.Contains(ext))
+                    strong++;
+                else if (genericExts.Contains(ext) && (now - fi.LastWriteTime).TotalDays <= 90)
+                    recentGeneric++;
+            }
+
+            if (total > 300L * 1024 * 1024) return null;
+            if (strong == 0 && recentGeneric < 3) return null;
+
+            return new SaveCandidate
+            {
+                Path = dir,
+                FileCount = files.Length,
+                TotalBytes = total,
+                LastWriteTime = last == DateTime.MinValue ? DateTime.Now : last
+            };
+        }
+        catch
+        {
+            return null;
         }
     }
 

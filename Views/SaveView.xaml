@@ -153,6 +153,47 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+
+                        <Border CornerRadius="8" Padding="12,10" Margin="0,14,0,0"
+                                Background="{DynamicResource LayerFillColorDefaultBrush}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="存档位置扫描助手" FontSize="13" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                    <Button Content="扫描常见位置" Margin="12,0,0,0" Padding="12,6" FontSize="12"
+                                            VerticalAlignment="Center"
+                                            IsEnabled="{Binding IsScanningSaveLocations, Converter={StaticResource BoolInvertConverter}}"
+                                            Command="{Binding ScanSaveLocationsCommand}"/>
+                                    <ui:ProgressRing IsActive="True" Width="14" Height="14" Margin="10,0,0,0"
+                                                     VerticalAlignment="Center"
+                                                     Visibility="{Binding IsScanningSaveLocations, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </StackPanel>
+                                <TextBlock Text="自动扫描 Documents / My Games / Saved Games / AppData 等常见位置，找出像存档的目录后一键绑定到当前游戏"
+                                           FontSize="11" Margin="0,4,0,6"
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding SaveScanStatus}" FontSize="11.5" Margin="0,0,0,6"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                                <ListBox ItemsSource="{Binding SaveCandidates}"
+                                         SelectedItem="{Binding SelectedSaveCandidate}"
+                                         MaxHeight="150" MinHeight="60"
+                                         Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="2">
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                <TextBlock Text="{Binding InfoText}" FontSize="11" Margin="0,2,0,0"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <Button Content="绑定到选中游戏" Padding="14,7" FontSize="12" FontWeight="SemiBold"
+                                        Margin="0,8,0,0" HorizontalAlignment="Left"
+                                        Command="{Binding BindSaveCandidateCommand}"/>
+                            </StackPanel>
+                        </Border>
                         <TextBlock Text="{Binding SelectedSave.AccountName, StringFormat=Steam 账号：{0}}"
                                    FontSize="12.5" Margin="0,4,0,0"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
