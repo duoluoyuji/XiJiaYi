@@ -78,7 +78,17 @@ public partial class SaveViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCloudRedirectReady;
 
+    [ObservableProperty]
+    private ObservableCollection<string> _accounts = new();
+
+    [ObservableProperty]
+    private string _selectedAccount = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<string> _selectedSaveCustomFolders = new();
+
     private bool _suppressSelectionHandler;
+    private List<SaveGameEntry> _allSaveEntries = new();
 
     public SaveViewModel(ISaveService saveService, ISteamPathService steamPathService, ISettingsService settingsService)
     {
@@ -96,7 +106,50 @@ public partial class SaveViewModel : ObservableObject
     partial void OnSelectedSaveChanged(SaveGameEntry? value)
     {
         if (_suppressSelectionHandler || value == null) return;
+        RefreshCustomFolders(value);
         _ = RefreshBackupListsAsync(value);
+    }
+
+    partial void OnSelectedAccountChanged(string value)
+    {
+        ApplySaveFilter();
+    }
+
+    private void ApplySaveFilter()
+    {
+        _suppressSelectionHandler = true;
+        if (string.IsNullOrEmpty(SelectedAccount) || SelectedAccount == "全部账号")
+        {
+            SaveGames = new ObservableCollection<SaveGameEntry>(_allSaveEntries);
+        }
+        else
+        {
+            var entry = _allSaveEntries.FirstOrDefault(e => e.AccountDisplay == SelectedAccount);
+            if (entry != null)
+            {
+                var id3 = entry.SteamId3;
+                SaveGames = new ObservableCollection<SaveGameEntry>(
+                    _allSaveEntries.Where(e => e.SteamId3 == id3));
+            }
+            else
+            {
+                SaveGames = new ObservableCollection<SaveGameEntry>();
+            }
+        }
+        SelectedSave = SaveGames.FirstOrDefault();
+        _suppressSelectionHandler = false;
+    }
+
+    private void RefreshCustomFolders(SaveGameEntry? entry)
+    {
+        if (entry == null)
+        {
+            SelectedSaveCustomFolders.Clear();
+            return;
+        }
+        var settings = _settingsService.Load();
+        var list = settings.CustomSaveFolders.TryGetValue(entry.AppId.ToString(), out var l) ? l : new List<string>();
+        SelectedSaveCustomFolders = new ObservableCollection<string>(list);
     }
 
     private async Task RefreshBackupListsAsync(SaveGameEntry entry)
@@ -141,8 +194,20 @@ public partial class SaveViewModel : ObservableObject
 
             var list = _saveService.ScanLocalSaves();
             _suppressSelectionHandler = true;
-            SaveGames = new ObservableCollection<SaveGameEntry>(list);
-            SelectedSave = SaveGames.FirstOrDefault();
+            _allSaveEntries = list;
+
+            var accountDisplays = list
+                .GroupBy(e => e.SteamId3)
+                .Select(g => g.First())
+                .OrderByDescending(e => e.IsCurrentAccount)
+                .Select(e => e.AccountDisplay)
+                .ToList();
+            var current = accountDisplays.FirstOrDefault(a => a.Contains("当前账号"));
+            accountDisplays.Insert(0, "全部账号");
+            Accounts = new ObservableCollection<string>(accountDisplays);
+            SelectedAccount = current ?? "全部账号";
+
+            ApplySaveFilter();
             _suppressSelectionHandler = false;
 
             if (list.Count == 0)
@@ -153,6 +218,7 @@ public partial class SaveViewModel : ObservableObject
             }
             else if (SelectedSave != null)
             {
+                RefreshCustomFolders(SelectedSave);
                 await RefreshBackupListsAsync(SelectedSave);
             }
         }
@@ -224,6 +290,52 @@ public partial class SaveViewModel : ObservableObject
         LogService.Info("存档", "已保存云端(WebDAV)设置");
         if (SelectedSave != null)
             await RefreshBackupListsAsync(SelectedSave);
+    }
+
+    [RelayCommand]
+    private async Task AddCustomFolderAsync()
+    {
+        var entry = SelectedSave;
+        if (entry == null)
+        {
+            await ShowDialogAsync("提示", "请先选择要添加存档目录的游戏。");
+            return;
+        }
+
+        var owner = new WindowInteropHelper(Application.Current.MainWindow).Handle;
+        var folder = FolderPicker.PickFolder(null, owner);
+        if (string.IsNullOrEmpty(folder)) return;
+
+        var settings = _settingsService.Load();
+        if (!settings.CustomSaveFolders.TryGetValue(entry.AppId.ToString(), out var list))
+        {
+            list = new List<string>();
+            settings.CustomSaveFolders[entry.AppId.ToString()] = list;
+        }
+        if (!list.Contains(folder, StringComparer.OrdinalIgnoreCase))
+            list.Add(folder);
+        _settingsService.Save(settings);
+        StatusMessage = $"已为 {entry.GameName} 添加存档目录：{folder}";
+        LogService.Info("存档", $"自定义存档目录: {entry.AppId} -> {folder}");
+        await RefreshAsync();
+    }
+
+    [RelayCommand]
+    private async Task RemoveCustomFolderAsync(string folder)
+    {
+        var entry = SelectedSave;
+        if (entry == null || string.IsNullOrEmpty(folder)) return;
+
+        var settings = _settingsService.Load();
+        if (settings.CustomSaveFolders.TryGetValue(entry.AppId.ToString(), out var list))
+        {
+            list.RemoveAll(f => string.Equals(f, folder, StringComparison.OrdinalIgnoreCase));
+            if (list.Count == 0)
+                settings.CustomSaveFolders.Remove(entry.AppId.ToString());
+            _settingsService.Save(settings);
+            StatusMessage = $"已移除存档目录：{folder}";
+            await RefreshAsync();
+        }
     }
 
     [RelayCommand]

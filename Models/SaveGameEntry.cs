@@ -30,6 +30,12 @@ public partial class SaveGameEntry : ObservableObject
     [ObservableProperty]
     private DateTime _lastWriteTime;
 
+    [ObservableProperty]
+    private bool _isCurrentAccount;
+
+    /// <summary>该游戏所有需要备份/同步的存档根目录（remote/ugc/local/自定义目录）。</summary>
+    public List<string> SaveRoots { get; set; } = new();
+
     /// <summary>由 SteamID3 换算出的 SteamID64（76561197960265728 + 账号ID）。</summary>
     public string SteamId64 =>
         long.TryParse(SteamId3, out var id3) && id3 > 0
@@ -37,6 +43,11 @@ public partial class SaveGameEntry : ObservableObject
             : string.Empty;
 
     public string DisplayName => $"{GameName}（AppID {AppId}）";
+
+    public string AccountDisplay =>
+        string.IsNullOrEmpty(AccountName)
+            ? $"账号 {SteamId3}"
+            : IsCurrentAccount ? $"{AccountName}（当前账号）" : AccountName;
 
     public string SizeText => FormatSize(TotalBytes);
 
@@ -74,6 +85,9 @@ public partial class LocalBackupEntry : ObservableObject
 /// <summary>云端备份条目（WebDAV 上的 zip 文件）。</summary>
 public partial class CloudBackupEntry : ObservableObject
 {
+    [ObservableProperty]
+    private string _folderPath = string.Empty;
+
     [ObservableProperty]
     private string _fileName = string.Empty;
 
