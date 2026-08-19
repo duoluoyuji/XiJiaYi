@@ -56,6 +56,9 @@ public class SaveService : ISaveService
     private string CloudCacheRoot => Path.Combine(_savesRoot, "云端缓存");
     private string ImportTempRoot => Path.Combine(_savesRoot, "导入临时");
 
+    /// <summary>Steam 自身应用 AppID（非游戏），其 userdata 目录不参与存档扫描。</summary>
+    private static readonly HashSet<int> SystemAppIds = new() { 7, 480, 760 };
+
     public SaveService(ISteamPathService steamPathService, ISettingsService settingsService)
     {
         _steamPathService = steamPathService;
@@ -91,6 +94,7 @@ public class SaveService : ISaveService
             {
                 var remote = Path.Combine(appDir, "remote");
                 if (!int.TryParse(Path.GetFileName(appDir), out var appId)) continue;
+                if (SystemAppIds.Contains(appId)) continue;
 
                 // 扫描范围：remote（Steam 云存档）、ugc（创意工坊内容）、local（部分游戏本地云目录）
                 var roots = new List<string>();
