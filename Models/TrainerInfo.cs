@@ -36,4 +36,7 @@ public partial class TrainerInfo : ObservableObject
 
     [ObservableProperty]
     private int _cheatCount;
+
+    [ObservableProperty]
+    private string _localPath = string.Empty;
 }
