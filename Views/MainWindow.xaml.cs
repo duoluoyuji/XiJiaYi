@@ -417,6 +417,10 @@ public partial class MainWindow : Window
         LogService.Info("导航", $"切换到 {tag}");
         UpdatePageHeader(tag);
 
+        if (tag == "Trainer")
+        {
+            _ = _trainerViewModel.LoadSectionsCommand.ExecuteAsync(null);
+        }
         if (tag == "Achievement")
         {
             _ = _achievementViewModel.EnsureLoadedAsync();
@@ -975,7 +979,7 @@ public partial class MainWindow : Window
             "ScriptDownload" => ("入库管理", "搜索并入库新的游戏"),
             "Extraction" => ("提取授权", "从 Steam 账号提取游戏清单与成就数据"),
             "Authorization" => ("授权管理", "管理游戏授权与票据信息"),
-            "Trainer" => ("修改器", "基于 Game-Cheats-Manager，支持中英文搜索与下载管理"),
+            "Trainer" => ("修改器", "支持中英文搜索、热门推荐与一键下载"),
             "Achievement" => ("成就管理", "解锁或回锁已拥有的游戏成就"),
             "Save" => ("存档管理", "本地备份、云端同步与完美存档一键替换"),
             "OnlineFix" => ("在线联机", "以 SpaceWar(480) 身份启动游戏，使用大厅匹配与好友联机"),
