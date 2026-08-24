@@ -3,7 +3,8 @@
 基于 WPF + .NET 8 开发的现代化 Steam 游戏管理工具（适配 OpenSteamTool 内核）。从制作到发布皆由ChatGPT一手包办，有问题不要问我，我也不懂
 
 ## 功能一览
-<img width="1750" height="1181" alt="QQ20260816-223746" src="https://github.com/user-attachments/assets/33af6c3d-b02f-4fbc-a0ae-0b88f7c20aa1" />
+<img width="1736" height="1168" alt="QQ20260824-160335" src="https://github.com/user-attachments/assets/72b41a96-30b1-4785-8d8d-e05cb5c34783" />
+
 
 
 
