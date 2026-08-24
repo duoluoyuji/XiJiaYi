@@ -832,6 +832,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             "Remote" => "已切换为远程清单仓库",
             "DepotKey" => "已切换为本地缓存仓库 V1",
             "DepotKey2" => "已切换为本地缓存仓库 V2",
+            "ShikiLua" => "已切换为 ShikiLua 内置库",
             _ => ""
         };
         if (!string.IsNullOrEmpty(StatusMessage))

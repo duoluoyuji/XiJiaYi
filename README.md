@@ -23,7 +23,7 @@
 - AppTicket / ETicket 授权提取、管理、拖拽导入
 
 ### 修改器
-- 搜索、下载、管理游戏修改器（风灵月影），支持游戏启动自动挂载
+- 基于 [Game-Cheats-Manager](https://github.com/dyang886/Game-Cheats-Manager)（GPL-3.0）重新实现，支持中英文搜索、热门推荐、最新发布、下载管理与 Cheat Engine 集成
 
 ### 成就管理
 - 查看 / 解锁 / 回锁已拥有游戏的 Steam 成就
@@ -68,6 +68,7 @@ dotnet publish SteamLuaManager.csproj -c Release -r win-x64 --self-contained fal
 | [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) | MVVM 框架 | MIT |
 | [HtmlAgilityPack](https://html-agility-pack.net/) | HTML 解析 | MIT |
 | [Tomlyn](https://github.com/xoofx/Tomlyn) | TOML 配置解析 | BSD-2-Clause |
+| [Game-Cheats-Manager](https://github.com/dyang886/Game-Cheats-Manager) | 修改器搜索/下载/管理（支持中英文搜索） | GPL-3.0 |
 | [Microsoft.Extensions.DependencyInjection](https://github.com/dotnet/runtime) | 依赖注入 | MIT |
 
 各项目的完整许可文件请见其源码仓库；本仓库内保留的第三方代码（如 `Services/SamApi/LICENSE.txt`）均已随附原始许可声明。

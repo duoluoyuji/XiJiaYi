@@ -216,9 +216,6 @@
                     <RadioButton x:Name="AuthorizationItem" GroupName="Nav" Tag="Authorization"
                                  Style="{StaticResource SidebarNavStyle}" Content="授权管理"
                                  Checked="NavItem_Checked"/>
-                    <RadioButton x:Name="TrainerItem" GroupName="Nav" Tag="Trainer"
-                                 Style="{StaticResource SidebarNavStyle}" Content="修改器"
-                                 Checked="NavItem_Checked"/>
                     <RadioButton x:Name="AchievementItem" GroupName="Nav" Tag="Achievement"
                                  Style="{StaticResource SidebarNavStyle}" Content="成就管理"
                                  Checked="NavItem_Checked"/>
@@ -227,6 +224,9 @@
                                  Checked="NavItem_Checked"/>
                     <RadioButton x:Name="OnlineFixItem" GroupName="Nav" Tag="OnlineFix"
                                  Style="{StaticResource SidebarNavStyle}" Content="在线联机"
+                                 Checked="NavItem_Checked"/>
+                    <RadioButton x:Name="TrainerItem" GroupName="Nav" Tag="Trainer"
+                                 Style="{StaticResource SidebarNavStyle}" Content="修改器"
                                  Checked="NavItem_Checked"/>
                     </StackPanel>
                 </ScrollViewer>

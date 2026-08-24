@@ -43,11 +43,12 @@ public partial class ScriptDownloadViewModel : ObservableObject
     private string _statusMessage = "就绪";
 
     public bool IsDepotKeyMode => _currentDownloadMode == "DepotKey";
-    public bool IsLocalCacheMode => _currentDownloadMode == "DepotKey" || _currentDownloadMode == "DepotKey2";
+    public bool IsLocalCacheMode => _currentDownloadMode is "DepotKey" or "DepotKey2" or "ShikiLua";
     public string CurrentDataSourceLabel => _currentDownloadMode switch
     {
         "DepotKey" => "本地缓存仓库V1",
         "DepotKey2" => "本地缓存仓库V2",
+        "ShikiLua" => "ShikiLua内置库",
         _ => "远程清单仓库"
     };
 

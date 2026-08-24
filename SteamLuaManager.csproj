@@ -14,7 +14,7 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <Title>喜加一</Title>
     <Product>喜加一</Product>
-    <Version>1.6.12</Version>
+    <Version>1.7.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,6 +46,11 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\SvcMonitor.zip" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Data\ShikiLua\depotkeys.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Data\ShikiLua\appaccesstokens.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Target Name="BuildSvcMonitorForEmbed" BeforeTargets="BeforeBuild">

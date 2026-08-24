@@ -18,6 +18,9 @@ public class SteamDepotService : ISteamDepotService
     private const string KeyIndexUrl = "https://pan.qzyun.net/f/d/MlArs0/key.txt";
     private const string Source2DepotKeysUrl = "https://api.993499094.xyz/depotkeys.json";
     private const string Source2TokenKeysUrl = "https://api.993499094.xyz/appaccesstokens.json";
+    /// <summary>ShikiLua（KeySteam 内置库）在线密钥源；未配置托管时由内置离线数据兜底。</summary>
+    private const string ShikiLuaDepotKeysUrl = "https://raw.githubusercontent.com/duoluoyuji/ShikiLuaDepot/main/depotkeys.json";
+    private const string ShikiLuaTokenKeysUrl = "https://raw.githubusercontent.com/duoluoyuji/ShikiLuaDepot/main/appaccesstokens.json";
 
     /// <summary>备用密钥数据源（ManifestHub 仓库及其镜像），按顺序逐个尝试。</summary>
     private static readonly (string DepotKeysUrl, string TokenKeysUrl)[] DefaultKeySourceCandidates =
@@ -36,7 +39,7 @@ public class SteamDepotService : ISteamDepotService
          "https://gh.akass.cn/SteamAutoCracks/ManifestHub/main/appaccesstokens.json"),
     ];
 
-    private static readonly string[] SourceNames = ["DepotKey", "DepotKey2"];
+    private static readonly string[] SourceNames = ["DepotKey", "DepotKey2", "ShikiLua"];
 
     public SteamDepotService(ISteamPathService steamPathService, IHttpClientProvider httpClientProvider)
     {
@@ -59,8 +62,43 @@ public class SteamDepotService : ISteamDepotService
         _currentSource = source;
     }
 
+    /// <summary>随程序分发的内置 ShikiLua 密钥库目录（Data/ShikiLua），离线可用。</summary>
+    private static string GetBundledDataDir() =>
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "ShikiLua");
+
+    private bool TryCopyBundledShikiLua(string depotPath, string tokenPath)
+    {
+        try
+        {
+            var bundledDir = GetBundledDataDir();
+            var srcDepot = Path.Combine(bundledDir, "depotkeys.json");
+            var srcToken = Path.Combine(bundledDir, "appaccesstokens.json");
+            if (!File.Exists(srcDepot) || !File.Exists(srcToken))
+                return false;
+
+            var cacheDir = Path.GetDirectoryName(depotPath);
+            if (!string.IsNullOrEmpty(cacheDir))
+                Directory.CreateDirectory(cacheDir);
+
+            File.Copy(srcDepot, depotPath, true);
+            File.Copy(srcToken, tokenPath, true);
+            LogService.Info("入库", "ShikiLua 内置密钥库已就绪（离线数据）");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("入库", $"复制内置 ShikiLua 密钥库失败: {ex.Message}");
+            return false;
+        }
+    }
+
     private string GetSourceCacheDir() =>
-        Path.Combine(_cacheFolder, _currentSource == "DepotKey2" ? "v2" : "v1");
+        _currentSource switch
+        {
+            "DepotKey2" => Path.Combine(_cacheFolder, "v2"),
+            "ShikiLua" => Path.Combine(_cacheFolder, "v3"),
+            _ => Path.Combine(_cacheFolder, "v1"),
+        };
 
     private string GetDepotKeysPath() =>
         Path.Combine(GetSourceCacheDir(), "depotkeys.json");
@@ -78,6 +116,12 @@ public class SteamDepotService : ISteamDepotService
         if (_currentSource == "DepotKey")
         {
             _resolvedUrls[_currentSource] = (Source2DepotKeysUrl, Source2TokenKeysUrl);
+            return true;
+        }
+
+        if (_currentSource == "ShikiLua")
+        {
+            _resolvedUrls[_currentSource] = (ShikiLuaDepotKeysUrl, ShikiLuaTokenKeysUrl);
             return true;
         }
 
@@ -121,6 +165,10 @@ public class SteamDepotService : ISteamDepotService
             Directory.CreateDirectory(cacheDir);
 
         if (File.Exists(depotPath) && File.Exists(tokenPath))
+            return true;
+
+        // ShikiLua：内置离线数据兜底，无需联网
+        if (_currentSource == "ShikiLua" && TryCopyBundledShikiLua(depotPath, tokenPath))
             return true;
 
         for (int attempt = 1; attempt <= 3; attempt++)
@@ -171,6 +219,24 @@ public class SteamDepotService : ISteamDepotService
                     result.TokenKeysOldCount = oldDict?.Count ?? 0;
                 }
                 catch (Exception ex) { LogService.Warn("入库", $"解析旧 token 密钥文件失败: {ex.Message}"); result.TokenKeysOldCount = 0; }
+            }
+
+            // ShikiLua：内置数据优先（离线可用），直接落地到缓存
+            if (_currentSource == "ShikiLua" && TryCopyBundledShikiLua(depotPath, tokenPath))
+            {
+                try
+                {
+                    var newDepot = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                        await File.ReadAllTextAsync(depotPath, ct));
+                    result.DepotKeysNewCount = newDepot?.Count ?? 0;
+                    var newToken = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                        await File.ReadAllTextAsync(tokenPath, ct));
+                    result.TokenKeysNewCount = newToken?.Count ?? 0;
+                }
+                catch (Exception ex) { LogService.Warn("入库", $"解析内置 ShikiLua 密钥库失败: {ex.Message}"); }
+
+                result.Success = true;
+                return result;
             }
 
             // 组装候选源：当前配置源优先，其次为备用镜像源（自动去重）

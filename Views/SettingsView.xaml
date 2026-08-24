@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="SteamLuaManager.Views.SettingsView"
+<UserControl x:Class="SteamLuaManager.Views.SettingsView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
@@ -257,15 +257,6 @@
                                              OnContent="开" OffContent="关"/>
                         </ui:SettingsCard>
 
-                        <ui:SettingsCard Header="修改器推荐栏目" Margin="0,0,0,8"
-                                         Description="修改器界面的热门推荐和最新发布栏目"
-                                         ui:ControlHelper.CornerRadius="8">
-                            <ui:SettingsCard.Background>
-                                <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.45"/>
-                            </ui:SettingsCard.Background>
-                            <ui:ToggleSwitch IsOn="{Binding IsShowTrainerSections}"
-                                             OnContent="开" OffContent="关"/>
-                        </ui:SettingsCard>
 
                         <ui:SettingsCard Header="日志复制按钮" Margin="0,0,0,8"
                                          Description="在提取和入库页的日志输出框右上角显示复制按钮"
@@ -300,6 +291,7 @@
                                 </ComboBox.Background>
                                 <ComboBoxItem Content="本地缓存仓库 V1" Tag="DepotKey"/>
                                 <ComboBoxItem Content="本地缓存仓库 V2" Tag="DepotKey2"/>
+                                <ComboBoxItem Content="ShikiLua 内置库" Tag="ShikiLua"/>
                                 <ComboBoxItem Content="远程清单仓库" Tag="Remote"/>
                             </ComboBox>
                         </ui:SettingsCard>
