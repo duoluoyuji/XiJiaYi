@@ -94,6 +94,10 @@
                                                     Visibility="{Binding IsDownloaded, Converter={StaticResource InvertedBoolToVisibilityConverter}}"
                                                     Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}"/>
+                                            <Button Content="删除" Padding="10,6" FontSize="12" Margin="8,0,0,0"
+                                                    Visibility="{Binding IsDownloaded, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                    Command="{Binding DataContext.DeleteTrainerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
                                         </StackPanel>
                                         <ProgressBar Height="4" Margin="0,6,0,0"
                                                      Value="{Binding DownloadProgress}" Maximum="100"
@@ -137,6 +141,10 @@
                                             <Button Content="下载修改器" Padding="10,6" FontSize="12" FontWeight="SemiBold"
                                                     Visibility="{Binding IsDownloaded, Converter={StaticResource InvertedBoolToVisibilityConverter}}"
                                                     Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Content="删除" Padding="10,6" FontSize="12" Margin="8,0,0,0"
+                                                    Visibility="{Binding IsDownloaded, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                    Command="{Binding DataContext.DeleteTrainerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}"/>
                                         </StackPanel>
                                         <ProgressBar Height="4" Margin="0,6,0,0"
@@ -182,6 +190,10 @@
                                             <Button Content="下载修改器" Visibility="{Binding IsDownloaded, Converter={StaticResource InvertedBoolToVisibilityConverter}}" Padding="10,6" FontSize="12" FontWeight="SemiBold"
                                                     Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}"/>
+                                            <Button Content="删除" Padding="10,6" FontSize="12" Margin="8,0,0,0"
+                                                    Visibility="{Binding IsDownloaded, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                    Command="{Binding DataContext.DeleteTrainerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
                                             <Button Content="详情页" Padding="10,6" FontSize="12" Margin="8,0,0,0"
                                                     Command="{Binding DataContext.OpenTrainerPageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}"/>
@@ -221,6 +233,9 @@
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                             <Button Content="打开修改器" Padding="12,7" FontSize="12" FontWeight="SemiBold"
                                                     Command="{Binding DataContext.LaunchTrainerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Content="删除" Padding="12,7" FontSize="12" Margin="8,0,0,0"
+                                                    Command="{Binding DataContext.DeleteTrainerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}"/>
                                         </StackPanel>
                                     </Grid>

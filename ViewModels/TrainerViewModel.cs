@@ -2,10 +2,12 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using iNKORE.UI.WPF.Modern.Controls;
 using SteamLuaManager.Models;
 using SteamLuaManager.Services;
 
@@ -73,6 +75,7 @@ public partial class TrainerViewModel : ObservableObject
             var newest = await _trainerService.GetNewReleasesAsync(12);
             HotTrainers = new ObservableCollection<TrainerInfo>(hot);
             NewTrainers = new ObservableCollection<TrainerInfo>(newest);
+            MarkDownloadedStates();
             StatusMessage = hot.Count == 0 && newest.Count == 0 ? "未能获取列表，请检查网络后重试" : "加载完成";
         }
         catch (Exception ex)
@@ -96,6 +99,7 @@ public partial class TrainerViewModel : ObservableObject
         {
             var result = await _trainerService.SearchTrainersSmartAsync(SearchText);
             SearchResults = new ObservableCollection<TrainerInfo>(result);
+            MarkDownloadedStates();
             CurrentSection = "search";
             StatusMessage = result.Count == 0
                 ? "未找到相关修改器，请换一个名称试试（如英文名）"
@@ -118,6 +122,19 @@ public partial class TrainerViewModel : ObservableObject
     [RelayCommand]
     private async Task DownloadAsync(TrainerInfo trainer)
     {
+        if (trainer.IsDownloaded)
+        {
+            StatusMessage = "已下载过该修改器，无需重复下载（点“打开修改器”直接使用）";
+            return;
+        }
+        var dup = DownloadedTrainers.FirstOrDefault(d => NamesMatch(d.GameName, trainer.GameName));
+        if (dup != null)
+        {
+            trainer.IsDownloaded = true;
+            trainer.LocalPath = dup.LocalPath;
+            StatusMessage = "已下载过该修改器，无需重复下载";
+            return;
+        }
         if (trainer.IsDownloading) return;
         trainer.IsDownloading = true;
         trainer.DownloadProgress = 0;
@@ -182,6 +199,17 @@ public partial class TrainerViewModel : ObservableObject
                     LogService.Warn("修改器", $"zip 解压失败（保留原包）: {zipEx.Message}");
                 }
             }
+            // 写下载完成标记：记录原始游戏名，供重启后跨列表识别，并防止半截文件被当成已下载
+            try
+            {
+                var markerPath = Path.Combine(dir, "gcm_info.json");
+                File.WriteAllText(markerPath, JsonSerializer.Serialize(new
+                {
+                    game_name = trainer.GameName,
+                    local_path = dest
+                }));
+            }
+            catch { }
             trainer.LocalPath = dest;
             trainer.IsDownloaded = true;
             LoadDownloaded();
@@ -224,6 +252,59 @@ public partial class TrainerViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task DeleteTrainerAsync(TrainerInfo trainer)
+    {
+        if (trainer == null) return;
+        var name = string.IsNullOrWhiteSpace(trainer.GameName) ? "该修改器" : trainer.GameName;
+        var ok = await ShowConfirmAsync("删除修改器", $"确定删除「{name}」吗？\n对应文件会被删除，且不可恢复。", "删除");
+        if (!ok) return;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(trainer.LocalPath))
+            {
+                var dir = Path.GetDirectoryName(trainer.LocalPath);
+                if (!string.IsNullOrEmpty(dir) &&
+                    dir.StartsWith(TrainersDir, StringComparison.OrdinalIgnoreCase) &&
+                    Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, true);
+                }
+                else if (File.Exists(trainer.LocalPath))
+                {
+                    File.Delete(trainer.LocalPath);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("修改器", $"删除文件失败: {ex.Message}");
+        }
+
+        ResetDownloadState(name);
+        LoadDownloaded();
+        StatusMessage = $"已删除：{name}";
+        LogService.Info("修改器", $"删除修改器: {name}");
+    }
+
+    private void ResetDownloadState(string name)
+    {
+        void Reset(ObservableCollection<TrainerInfo> list)
+        {
+            foreach (var item in list.Where(i => NamesMatch(i.GameName, name)).ToList())
+            {
+                item.IsDownloaded = false;
+                item.LocalPath = string.Empty;
+            }
+        }
+        Reset(HotTrainers);
+        Reset(NewTrainers);
+        Reset(SearchResults);
+        foreach (var item in DownloadedTrainers.Where(i => NamesMatch(i.GameName, name)).ToList())
+            DownloadedTrainers.Remove(item);
+    }
+
+    [RelayCommand]
     private void OpenTrainerFolder() => Process.Start(new ProcessStartInfo(TrainersDir) { UseShellExecute = true });
 
     [RelayCommand]
@@ -245,9 +326,11 @@ public partial class TrainerViewModel : ObservableObject
                     var exe = Directory.GetFiles(dir, "*.exe", SearchOption.AllDirectories).FirstOrDefault()
                               ?? Directory.GetFiles(dir, "*.zip", SearchOption.AllDirectories).FirstOrDefault();
                     if (exe == null) continue;
+
+                    var markerName = TryReadMarkerName(dir);
                     list.Add(new TrainerInfo
                     {
-                        GameName = Path.GetFileName(dir),
+                        GameName = markerName ?? Path.GetFileName(dir),
                         LocalPath = exe,
                         IsDownloaded = true
                     });
@@ -259,6 +342,94 @@ public partial class TrainerViewModel : ObservableObject
             LogService.Warn("修改器", $"读取已下载列表失败: {ex.Message}");
         }
         DownloadedTrainers = new ObservableCollection<TrainerInfo>(list);
+        MarkDownloadedStates();
+    }
+
+    /// <summary>按游戏名把热门/最新/搜索结果里已下载的条目标记为“已下载”。</summary>
+    private void MarkDownloadedStates()
+    {
+        var downloaded = DownloadedTrainers.ToList();
+        void Apply(ObservableCollection<TrainerInfo> list)
+        {
+            foreach (var item in list)
+            {
+                var match = downloaded.FirstOrDefault(d => NamesMatch(d.GameName, item.GameName));
+                if (match != null)
+                {
+                    item.IsDownloaded = true;
+                    item.LocalPath = match.LocalPath;
+                }
+            }
+        }
+        Apply(HotTrainers);
+        Apply(NewTrainers);
+        Apply(SearchResults);
+    }
+
+    private static bool NamesMatch(string a, string b)
+    {
+        var na = NormalizeForMatch(a);
+        var nb = NormalizeForMatch(b);
+        if (na.Length < 3 || nb.Length < 3) return false;
+        return na == nb || na.Contains(nb, StringComparison.Ordinal) ||
+               nb.Contains(na, StringComparison.Ordinal);
+    }
+
+    /// <summary>统一名称匹配规则：忽略大小写、把非法字符（如冒号）归一为下划线、压缩空白。</summary>
+    private static string NormalizeForMatch(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+        var invalid = Path.GetInvalidFileNameChars();
+        var sb = new System.Text.StringBuilder();
+        var prevSpace = false;
+        foreach (var c in s.Trim())
+        {
+            var ch = invalid.Contains(c) ? '_' : c;
+            if (char.IsWhiteSpace(ch))
+            {
+                if (!prevSpace) sb.Append(' ');
+                prevSpace = true;
+            }
+            else
+            {
+                sb.Append(ch);
+                prevSpace = false;
+            }
+        }
+        return sb.ToString().Trim().ToLowerInvariant();
+    }
+
+    /// <summary>读取下载完成标记里的原始游戏名（无标记返回 null）。</summary>
+    private static string? TryReadMarkerName(string dir)
+    {
+        try
+        {
+            var marker = Path.Combine(dir, "gcm_info.json");
+            if (!File.Exists(marker)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(marker));
+            if (doc.RootElement.TryGetProperty("game_name", out var name))
+                return name.GetString();
+        }
+        catch { }
+        return null;
+    }
+
+    private static async Task<bool> ShowConfirmAsync(string title, string message, string primaryText = "确定")
+    {
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = new System.Windows.Controls.TextBlock
+            {
+                Text = message,
+                TextWrapping = System.Windows.TextWrapping.Wrap,
+                MaxWidth = 440
+            },
+            PrimaryButtonText = primaryText,
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close
+        };
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     private static string SanitizeName(string name)
