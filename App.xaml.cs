@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Diagnostics;
@@ -122,12 +122,7 @@ public partial class App : Application
         // 本版本固定为纯黑深色主题
         ThemeManager.Current.ApplicationTheme = ApplicationTheme.Dark;
         SkinCatalog.Apply(settings.Skin);
-
         mainWindow.Show();
-
-        var autoLaunch = ServiceProvider.GetRequiredService<ITrainerAutoLaunchService>();
-        autoLaunch.Start();
-        mainWindow.Closed += (_, _) => autoLaunch.Dispose();
 
         _ = Task.Run(async () =>
         {
@@ -221,8 +216,6 @@ public partial class App : Application
         services.AddSingleton<IHttpClientProvider, HttpClientProvider>();
         services.AddSingleton<ISteamDepotService, SteamDepotService>();
         services.AddSingleton<IOpenSteamToolService, OpenSteamToolService>();
-        services.AddSingleton<ITrainerService, TrainerService>();
-        services.AddSingleton<ITrainerAutoLaunchService, TrainerAutoLaunchService>();
         services.AddSingleton<ISteamAchievementService, SteamAchievementService>();
         services.AddSingleton<SteamTicketExtractor>();
         services.AddSingleton<IAuthorizationService, AuthorizationService>();
