@@ -64,4 +64,13 @@ public interface IAuthorizationService
 
     /// <summary>提取结果文件的默认保存路径。</summary>
     string GetDefaultTicketsPath(uint appId);
+
+    /// <summary>检查指定 AppID 在注册表中是否存在 Denuvo 授权票据。</summary>
+    (bool IsAuthorized, int AppTicketLen, int ETicketLen, ulong StoredSteamId) CheckAuthStatus(uint appId);
+
+    /// <summary>清除指定 AppID 在注册表中的 AppTicket 和 ETicket 票据。</summary>
+    (bool Ok, string? Error) ClearTickets(uint appId);
+
+    /// <summary>支持解析任意授权文件（包括 tickets.txt、.json、.cw、.shiki 等）。如果指定 targetAppId，还会自动校验 AppID 匹配。</summary>
+    TicketParseResult ParseAuthFile(string path, uint? targetAppId = null);
 }

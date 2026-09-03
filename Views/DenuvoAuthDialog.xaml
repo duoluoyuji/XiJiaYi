@@ -1,0 +1,191 @@
+<Window x:Class="SteamLuaManager.Views.DenuvoAuthDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
+        xmlns:controls="clr-namespace:SteamLuaManager.Controls"
+        Title="D加密授权管理"
+        Width="580" Height="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ui:WindowHelper.UseModernWindowStyle="True"
+        ui:WindowHelper.CornerStyle="Round"
+        ui:TitleBar.Height="36"
+        Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"
+        AllowDrop="True"
+        DragEnter="Window_DragEnter"
+        DragOver="Window_DragOver"
+        Drop="Window_Drop"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        RenderOptions.ClearTypeHint="Enabled"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+
+    <Grid Margin="24,12,24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 游戏基础信息头 -->
+        <Border Grid.Row="0" Margin="0,0,0,14" Padding="12" CornerRadius="8"
+                BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
+            <Border.Background>
+                <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.5"/>
+            </Border.Background>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Width="110" Height="60" CornerRadius="6" ClipToBounds="True" Background="#1CFFFFFF">
+                    <controls:AsyncImage SourceUrl="{Binding CoverUrl}" Stretch="UniformToFill"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="14,2,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding GameName}" FontSize="16" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock Text="AppID: " FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="{Binding AppId}" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                    </StackPanel>
+                    <TextBlock Text="Denuvo 防篡改票据管理 · 注册表直接注入" FontSize="11" Margin="0,3,0,0"
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 状态卡片 -->
+        <Border Grid.Row="1" Margin="0,0,0,14" Padding="14,12" CornerRadius="8"
+                BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
+            <Border.Background>
+                <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.4"/>
+            </Border.Background>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Width="36" Height="36" CornerRadius="18" VerticalAlignment="Top"
+                        Background="{Binding StatusBadgeBackground}">
+                    <ui:FontIcon Glyph="{Binding StatusIconGlyph}" FontSize="16"
+                                 Foreground="{Binding StatusIconForeground}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="授权状态：" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="{Binding StatusTitle}" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{Binding StatusTitleForeground}"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding StatusDetails}" FontSize="11.5" Margin="0,4,0,0"
+                               TextWrapping="Wrap" LineHeight="18"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 功能按钮区域 -->
+        <StackPanel Grid.Row="2" VerticalAlignment="Top">
+            <!-- 正版号一键授权 -->
+            <Border Margin="0,0,0,8" Padding="12,10" CornerRadius="8"
+                    BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
+                <Border.Background>
+                    <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.3"/>
+                </Border.Background>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="正版号一键授权" FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="需登录拥有正版游戏的 Steam，直接提取票据写入注册表" FontSize="11" Margin="0,2,0,0"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Click="LegitAuth_Click"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource BoolInvertConverter}}"
+                            Padding="14,6" Height="34"
+                            Style="{StaticResource AccentButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:FontIcon Glyph="&#xE8D7;" FontSize="13" Margin="0,0,6,0"
+                                         Visibility="{Binding IsBusy, Converter={StaticResource InvertedBoolToVisibilityConverter}}"/>
+                            <ui:ProgressRing Width="14" Height="14" IsActive="True" Margin="0,0,6,0"
+                                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <TextBlock Text="一键授权" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- 导入授权文件 -->
+            <Border Margin="0,0,0,8" Padding="12,10" CornerRadius="8"
+                    BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
+                <Border.Background>
+                    <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.3"/>
+                </Border.Background>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="导入授权文件" FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="支持 tickets.txt / .cw / .shiki / .json 文件（也可直接拖拽至窗口）" FontSize="11" Margin="0,2,0,0"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Click="ImportFile_Click"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource BoolInvertConverter}}"
+                            Padding="14,6" Height="34">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:FontIcon Glyph="&#xE898;" FontSize="13" Margin="0,0,6,0"/>
+                            <TextBlock Text="选择文件..." VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- 辅助操作 -->
+            <Grid Margin="0,4,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Click="OpenBackupFolder_Click"
+                        HorizontalAlignment="Stretch" Margin="0,0,4,0" Height="32" Padding="8,4">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:FontIcon Glyph="&#xED25;" FontSize="12" Margin="0,0,6,0"/>
+                        <TextBlock Text="打开备份目录" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="1" Click="ClearAuth_Click"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource BoolInvertConverter}}"
+                        HorizontalAlignment="Stretch" Margin="4,0,0,0" Height="32" Padding="8,4">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:FontIcon Glyph="&#xE74D;" FontSize="12" Margin="0,0,6,0"/>
+                        <TextBlock Text="清除本地授权" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </StackPanel>
+
+        <!-- 底部消息与关闭按钮 -->
+        <Grid Grid.Row="3" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding ActionFeedbackMessage}" FontSize="11.5"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                       Foreground="{Binding ActionFeedbackForeground}"/>
+            <Button Grid.Column="1" Content="完成" Click="Close_Click" Padding="20,6" Height="32"/>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using SteamLuaManager.Models;
 
@@ -311,6 +312,141 @@ public sealed class AuthorizationService : IAuthorizationService
 
     public string GetDefaultTicketsPath(uint appId)
         => Path.Combine(AppContext.BaseDirectory, "cache", "denuvo", appId.ToString(CultureInfo.InvariantCulture), "tickets.txt");
+
+    public (bool IsAuthorized, int AppTicketLen, int ETicketLen, ulong StoredSteamId) CheckAuthStatus(uint appId)
+        => SteamCredentialStore.CheckAuthStatus(appId);
+
+    public (bool Ok, string? Error) ClearTickets(uint appId)
+        => SteamCredentialStore.ClearTickets(appId);
+
+    public TicketParseResult ParseAuthFile(string path, uint? targetAppId = null)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return Fail("未提供授权文件路径");
+        if (!File.Exists(path))
+            return Fail($"文件不存在：{path}");
+
+        TicketParseResult res;
+        try
+        {
+            var content = File.ReadAllText(path).Trim();
+
+            // 1. 尝试 JSON 格式
+            if (content.StartsWith('{') && content.EndsWith('}'))
+            {
+                res = TryParseJsonAuth(content);
+            }
+            // 2. 尝试标准 tickets.txt 或含 appid: 的文本
+            else if (content.Contains("appid", StringComparison.OrdinalIgnoreCase))
+            {
+                res = ParseTicketsFile(path);
+            }
+            // 3. 尝试二进制或特殊格式文件 (.cw, .shiki)
+            else
+            {
+                res = TryParseBinaryOrRawAuth(path);
+            }
+        }
+        catch (Exception ex)
+        {
+            return Fail($"读取或解析授权文件失败：{ex.Message}");
+        }
+
+        if (!res.Ok) return res;
+
+        // 校验目标 AppID
+        if (targetAppId.HasValue && targetAppId.Value != 0 && res.AppId != targetAppId.Value)
+        {
+            return Fail($"授权文件所对应的游戏 AppID ({res.AppId}) 与当前选中的游戏 AppID ({targetAppId.Value}) 不一致，无法导入！");
+        }
+
+        return res;
+    }
+
+    private static TicketParseResult TryParseJsonAuth(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            uint appId = 0;
+            if (root.TryGetProperty("appid", out var pAppId) || root.TryGetProperty("AppId", out pAppId))
+            {
+                if (pAppId.ValueKind == JsonValueKind.Number) appId = pAppId.GetUInt32();
+                else if (pAppId.ValueKind == JsonValueKind.String) uint.TryParse(pAppId.GetString(), out appId);
+            }
+
+            if (appId == 0) return Fail("JSON 授权文件缺少有效的 appid 字段");
+
+            byte[]? appTicket = null;
+            byte[]? eticket = null;
+
+            if (root.TryGetProperty("appticket", out var pApp) || root.TryGetProperty("AppTicket", out pApp))
+            {
+                var str = pApp.GetString() ?? string.Empty;
+                appTicket = DecodeHex(str) ?? (IsBase64(str) ? Convert.FromBase64String(str) : null);
+            }
+            if (root.TryGetProperty("eticket", out var pE) || root.TryGetProperty("ETicket", out pE))
+            {
+                var str = pE.GetString() ?? string.Empty;
+                eticket = DecodeHex(str) ?? (IsBase64(str) ? Convert.FromBase64String(str) : null);
+            }
+
+            if (appTicket == null || appTicket.Length == 0)
+                return Fail("JSON 授权文件缺少有效的 appticket 数据");
+            if (eticket == null || eticket.Length == 0)
+                return Fail("JSON 授权文件缺少有效的 eticket 数据");
+
+            var steamId = appTicket.Length >= 16 ? BitConverter.ToUInt64(appTicket, 8) : 0;
+            return new TicketParseResult(true, null, appId, steamId, appTicket, eticket);
+        }
+        catch (Exception ex)
+        {
+            return Fail($"解析 JSON 授权文件失败：{ex.Message}");
+        }
+    }
+
+    private static TicketParseResult TryParseBinaryOrRawAuth(string path)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(path);
+            if (bytes.Length < 32) return Fail("授权文件数据过短或损坏");
+
+            if (bytes.Length >= 8 && (
+                (bytes[0] == 'C' && bytes[1] == 'W' && bytes[2] == 'S' && bytes[3] == 'Q') ||
+                (bytes[0] == 'C' && bytes[1] == 'W' && bytes[2] == 'P' && bytes[3] == 'S')))
+            {
+                var appId = BitConverter.ToUInt32(bytes, 4);
+                if (bytes.Length > 24)
+                {
+                    for (int i = 8; i <= bytes.Length - 64; i++)
+                    {
+                        if (i + 20 <= bytes.Length && BitConverter.ToUInt32(bytes, i + 16) == appId)
+                        {
+                            var sub = new byte[bytes.Length - i];
+                            Array.Copy(bytes, i, sub, 0, sub.Length);
+                            var sId = BitConverter.ToUInt64(sub, 8);
+                            return new TicketParseResult(true, null, appId, sId, sub, sub);
+                        }
+                    }
+                }
+            }
+
+            return Fail("不支持该授权文件格式或文件已损坏");
+        }
+        catch (Exception ex)
+        {
+            return Fail($"读取二进制授权文件失败：{ex.Message}");
+        }
+    }
+
+    private static bool IsBase64(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s) || s.Length % 4 != 0) return false;
+        var span = new Span<byte>(new byte[s.Length]);
+        return Convert.TryFromBase64String(s, span, out _);
+    }
 
     private static void Log(string category, string message)
         => LogService.Info(category, message);

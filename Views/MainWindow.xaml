@@ -211,12 +211,6 @@
                     <RadioButton x:Name="NewGamesItem" GroupName="Nav" Tag="NewGames"
                                  Style="{StaticResource SidebarNavStyle}" Content="热门游戏"
                                  Checked="NavItem_Checked"/>
-                    <RadioButton x:Name="ExtractionItem" GroupName="Nav" Tag="Extraction"
-                                 Style="{StaticResource SidebarNavStyle}" Content="提取授权"
-                                 Checked="NavItem_Checked"/>
-                    <RadioButton x:Name="AuthorizationItem" GroupName="Nav" Tag="Authorization"
-                                 Style="{StaticResource SidebarNavStyle}" Content="授权管理"
-                                 Checked="NavItem_Checked"/>
                     <RadioButton x:Name="AchievementItem" GroupName="Nav" Tag="Achievement"
                                  Style="{StaticResource SidebarNavStyle}" Content="成就管理"
                                  Checked="NavItem_Checked"/>

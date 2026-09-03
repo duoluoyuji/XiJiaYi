@@ -184,6 +184,38 @@ public sealed class SteamCredentialStore
         }
     }
 
+    /// <summary>检查指定 AppID 在注册表中是否存在 Denuvo 授权票据。</summary>
+    public static (bool IsAuthorized, int AppTicketLen, int ETicketLen, ulong StoredSteamId) CheckAuthStatus(uint appId)
+    {
+        if (!IsSupported) return (false, 0, 0, 0);
+        var existing = ReadExisting(appId);
+        var (_, steamId) = GetStoredSteamId(appId);
+        var hasAppTicket = existing.AppTicket.Exists && existing.AppTicket.Data != null && existing.AppTicket.Data.Length > 0;
+        var hasETicket = existing.ETicket.Exists && existing.ETicket.Data != null && existing.ETicket.Data.Length > 0;
+        var isAuth = hasAppTicket || hasETicket;
+        return (isAuth, existing.AppTicket.Data?.Length ?? 0, existing.ETicket.Data?.Length ?? 0, steamId);
+    }
+
+    /// <summary>清除指定 AppID 在注册表中的 AppTicket 和 ETicket 票据。</summary>
+    public static (bool Ok, string? Error) ClearTickets(uint appId)
+    {
+        if (!IsSupported) return (false, "当前进程不是 64 位");
+        try
+        {
+            using var key = OpenAppsKey(appId, writable: true);
+            if (key == null) return (true, null);
+
+            try { key.DeleteValue("AppTicket", throwOnMissingValue: false); } catch { }
+            try { key.DeleteValue("ETicket", throwOnMissingValue: false); } catch { }
+            Log("reg", $"已清除 AppID {appId} 的注册表授权票据");
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
     private static void Log(string category, string message)
         => LogService.Info(category, message);
 }

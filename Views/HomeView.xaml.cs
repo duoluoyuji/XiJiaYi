@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
 using System.Diagnostics;
@@ -8,8 +8,12 @@ using System.Runtime.InteropServices;
 using System.Text;
 using iNKORE.UI.WPF.Modern.Controls;
 using iNKORE.UI.WPF.Modern;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 using SteamLuaManager.Models;
+using SteamLuaManager.Services;
 using SteamLuaManager.ViewModels;
+using MessageBox = iNKORE.UI.WPF.Modern.Controls.MessageBox;
 
 namespace SteamLuaManager.Views;
 
@@ -77,6 +81,8 @@ public partial class HomeView : UserControl
                 new CardMenuItem(game.IsDisabled ? "enable" : "disable", game.IsDisabled ? "启用入库" : "禁用入库"),
                 CardMenuItem.Separator(),
                 new CardMenuItem("onlinefix", "在线联机启动"),
+                CardMenuItem.Separator(),
+                new CardMenuItem("denuvo", "D加密授权", HasSubmenu: true),
                 CardMenuItem.Separator(),
                 new CardMenuItem("edit", "编辑 Lua"),
                 CardMenuItem.Separator(),
@@ -199,9 +205,12 @@ public partial class HomeView : UserControl
         if (border.Tag is not CardMenuItem item || !item.HasSubmenu || _activeMenuGame == null) return;
 
         _cardSubmenuTrigger = border;
-        CardSubmenuList.ItemsSource = item.Action == "pin"
-            ? BuildPinSubmenu(_activeMenuGame)
-            : BuildInfoSubmenu();
+        CardSubmenuList.ItemsSource = item.Action switch
+        {
+            "pin" => BuildPinSubmenu(_activeMenuGame),
+            "denuvo" => BuildDenuvoSubmenu(_activeMenuGame),
+            _ => BuildInfoSubmenu()
+        };
         CardSubmenuPanel.Visibility = Visibility.Hidden;
         PositionCardSubmenu(border);
         if (CardSubmenuPanel.Visibility != Visibility.Visible)
@@ -256,6 +265,18 @@ public partial class HomeView : UserControl
                 break;
             case "dlc-query":
                 await _activeMenuViewModel.QueryDlcCommand.ExecuteAsync(_activeMenuGame);
+                break;
+            case "denuvo-legit":
+                await HandleDenuvoLegitAuthAsync(_activeMenuGame);
+                break;
+            case "denuvo-import":
+                await HandleDenuvoImportFileAsync(_activeMenuGame);
+                break;
+            case "denuvo-dialog":
+                OpenDenuvoDialog(_activeMenuGame);
+                break;
+            case "denuvo-clear":
+                HandleDenuvoClearAuth(_activeMenuGame);
                 break;
         }
     }
@@ -344,8 +365,121 @@ public partial class HomeView : UserControl
         ? [new CardMenuItem("unpin", "取消版本固定")]
         : [new CardMenuItem("pin-latest", "固定到游戏最新版本"), CardMenuItem.Separator(), new CardMenuItem("pin-current", "固定到当前已安装版本")];
 
+    private static CardMenuItem[] BuildDenuvoSubmenu(GameInfo game) =>
+    [
+        new CardMenuItem("denuvo-legit", "正版号一键授权"),
+        CardMenuItem.Separator(),
+        new CardMenuItem("denuvo-import", "导入授权文件..."),
+        CardMenuItem.Separator(),
+        new CardMenuItem("denuvo-dialog", "授权状态与管理..."),
+        CardMenuItem.Separator(),
+        new CardMenuItem("denuvo-clear", "清除本地授权")
+    ];
+
     private static CardMenuItem[] BuildInfoSubmenu() =>
         [new CardMenuItem("steamdb", "SteamDB页面"), CardMenuItem.Separator(), new CardMenuItem("store", "Steam商店页面"), CardMenuItem.Separator(), new CardMenuItem("dlc-query", "清单DLC入库查询")];
+
+    private async Task HandleDenuvoLegitAuthAsync(GameInfo game)
+    {
+        try
+        {
+            var authService = App.ServiceProvider?.GetRequiredService<IAuthorizationService>();
+            if (authService == null)
+            {
+                MessageBox.Show("授权服务不可用", "正版号授权", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var result = await authService.ExtractAsync((uint)game.AppId);
+            var importRes = authService.ImportTicket(result.Ticket);
+
+            if (!string.IsNullOrEmpty(importRes.Warning) && importRes.AppTicketBytes == 0)
+            {
+                MessageBox.Show($"写入授权失败：{importRes.Warning}", "正版号授权", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            else
+            {
+                var warnTip = !string.IsNullOrEmpty(importRes.Warning) ? $"\n\n注意：{importRes.Warning}" : "";
+                MessageBox.Show($"《{game.GameName}》D加密授权成功！\n\n已成功从当前 Steam 账号提取票据并写入注册表。\n换号重启 Steam 即可直接启动！{warnTip}", "正版号授权成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"正版号授权失败：{ex.Message}\n\n请确保已登录拥有该游戏的 Steam 正版账号后重试。", "正版号授权失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task HandleDenuvoImportFileAsync(GameInfo game)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = $"选择《{game.GameName}》的授权文件",
+            Filter = "授权文件 (*.txt;*.cw;*.shiki;*.json)|*.txt;*.cw;*.shiki;*.json|所有文件 (*.*)|*.*",
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+
+        try
+        {
+            var authService = App.ServiceProvider?.GetRequiredService<IAuthorizationService>();
+            if (authService == null)
+            {
+                MessageBox.Show("授权服务不可用", "导入授权文件", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var parsed = authService.ParseAuthFile(dialog.FileName, (uint)game.AppId);
+            if (!parsed.Ok)
+            {
+                MessageBox.Show($"导入失败：{parsed.Error}", "导入授权文件", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var ticket = new TicketData(parsed.AppId, parsed.SteamId, parsed.AppTicket!, parsed.ETicket!, dialog.FileName);
+            var importRes = authService.ImportTicket(ticket);
+
+            if (!string.IsNullOrEmpty(importRes.Warning) && importRes.AppTicketBytes == 0)
+            {
+                MessageBox.Show($"写入授权失败：{importRes.Warning}", "导入授权文件", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            else
+            {
+                var warnTip = !string.IsNullOrEmpty(importRes.Warning) ? $"\n\n注意：{importRes.Warning}" : "";
+                MessageBox.Show($"《{game.GameName}》D加密授权导入成功！\n\n后续直接从 Steam 正常启动该游戏即可。{warnTip}", "导入授权成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"导入授权异常：{ex.Message}", "导入授权失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OpenDenuvoDialog(GameInfo game)
+    {
+        var authService = App.ServiceProvider?.GetRequiredService<IAuthorizationService>();
+        if (authService == null) return;
+        var dlg = new DenuvoAuthDialog(game, authService)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        dlg.ShowDialog();
+    }
+
+    private void HandleDenuvoClearAuth(GameInfo game)
+    {
+        var authService = App.ServiceProvider?.GetRequiredService<IAuthorizationService>();
+        if (authService == null) return;
+        var (ok, error) = authService.ClearTickets((uint)game.AppId);
+        if (ok)
+        {
+            MessageBox.Show($"已清除《{game.GameName}》在本地注册表中的授权票据。", "清除授权", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        else
+        {
+            MessageBox.Show($"清除授权失败：{error}", "清除授权", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     private void UpdateCardMenuBackground()
     {
