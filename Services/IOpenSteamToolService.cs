@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
@@ -15,6 +16,7 @@ public interface IOpenSteamToolService
     Task<string?> GetLocalVersionAsync();
     Task<(string version, string downloadUrl, string releaseUrl)> GetRemoteInfoAsync();
     Task InstallAsync(string downloadUrl, IProgress<string>? status = null, IProgress<int>? downloadProgress = null, CancellationToken ct = default);
+    Task InstallEmbeddedAsync(IProgress<string>? status = null);
     Task UninstallAsync();
 }
 
@@ -142,21 +144,65 @@ public class OpenSteamToolService : IOpenSteamToolService
         return (tag, downloadUrl, releaseUrl);
     }
 
+    public Task InstallEmbeddedAsync(IProgress<string>? status = null)
+    {
+        var steamPath = GetSteamPath() ?? throw new InvalidOperationException("无法检测 Steam 路径");
+        status?.Report("正在安全退出 Steam 进程...");
+        TryKillSteamProcesses();
+
+        CleanConflictFiles(steamPath);
+
+        status?.Report("正在从内置离线包解压并安装 OpenSteamTool...");
+        using var stream = typeof(OpenSteamToolService).Assembly.GetManifestResourceStream("SteamLuaManager.Resources.OpenSteamTool.zip");
+        if (stream == null)
+            throw new InvalidOperationException("未找到内置的 OpenSteamTool 安装包资源");
+
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
+        var extracted = 0;
+        foreach (var entry in archive.Entries)
+        {
+            var fileName = Path.GetFileName(entry.Name);
+            if (string.IsNullOrEmpty(fileName)) continue;
+            if (!RequiredDlls.Contains(fileName, StringComparer.OrdinalIgnoreCase)) continue;
+
+            var targetPath = Path.Combine(steamPath, fileName);
+            entry.ExtractToFile(targetPath, overwrite: true);
+            extracted++;
+        }
+
+        if (extracted == 0)
+            throw new InvalidOperationException("内置安装包中未找到 OpenSteamTool DLL 文件");
+
+        status?.Report("安装完成");
+        return Task.CompletedTask;
+    }
+
     public async Task InstallAsync(string downloadUrl, IProgress<string>? status = null, IProgress<int>? downloadProgress = null, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var steamPath = GetSteamPath() ?? throw new InvalidOperationException("无法检测 Steam 路径");
+
+        // 1. 退出 Steam 防止 DLL 占用锁定
+        status?.Report("正在安全退出 Steam 进程...");
+        TryKillSteamProcesses();
+
+        // 2. 清除冲突文件
+        CleanConflictFiles(steamPath);
+
         status?.Report("正在下载 OpenSteamTool...");
 
         var tempZip = Path.Combine(Path.GetTempPath(), $"OpenSteamTool_{Guid.NewGuid():N}.zip");
+        var downloadOk = false;
         try
         {
-            using (var response = await _httpClientProvider.SendWithProxyRetryAsync(
-                       "open-steam-tool",
-                       TimeSpan.FromSeconds(120),
-                       client => client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead),
-                       ConfigureHeaders))
+            try
             {
+                using var response = await _httpClientProvider.SendWithProxyRetryAsync(
+                           "open-steam-tool",
+                           TimeSpan.FromSeconds(30),
+                           client => client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead),
+                           ConfigureHeaders);
+
                 response.EnsureSuccessStatusCode();
                 var totalBytes = response.Content.Headers.ContentLength ?? -1;
 
@@ -177,28 +223,41 @@ public class OpenSteamToolService : IOpenSteamToolService
                         downloadProgress.Report(Math.Clamp(percent, 0, 100));
                     }
                 }
+                downloadOk = true;
+            }
+            catch (Exception ex)
+            {
+                LogService.Warn("内核安装", $"远程下载失败 ({ex.Message})，将自动转为内置离线安装包");
             }
 
             ct.ThrowIfCancellationRequested();
-            status?.Report("正在解压并安装 DLL...");
-            using var archive = ZipFile.OpenRead(tempZip);
-            var extracted = 0;
-            foreach (var entry in archive.Entries)
-            {
-                ct.ThrowIfCancellationRequested();
-                var fileName = Path.GetFileName(entry.Name);
-                if (string.IsNullOrEmpty(fileName)) continue;
-                if (!RequiredDlls.Contains(fileName, StringComparer.OrdinalIgnoreCase)) continue;
 
-                var targetPath = Path.Combine(steamPath, fileName);
-                entry.ExtractToFile(targetPath, overwrite: true);
-                extracted++;
+            if (downloadOk && File.Exists(tempZip) && new FileInfo(tempZip).Length > 0)
+            {
+                status?.Report("正在解压并安装 DLL...");
+                using var archive = ZipFile.OpenRead(tempZip);
+                var extracted = 0;
+                foreach (var entry in archive.Entries)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var fileName = Path.GetFileName(entry.Name);
+                    if (string.IsNullOrEmpty(fileName)) continue;
+                    if (!RequiredDlls.Contains(fileName, StringComparer.OrdinalIgnoreCase)) continue;
+
+                    var targetPath = Path.Combine(steamPath, fileName);
+                    entry.ExtractToFile(targetPath, overwrite: true);
+                    extracted++;
+                }
+
+                if (extracted > 0)
+                {
+                    status?.Report("安装完成");
+                    return;
+                }
             }
 
-            if (extracted == 0)
-                throw new InvalidOperationException("压缩包中未找到 OpenSteamTool DLL 文件");
-
-            status?.Report("安装完成");
+            // 自动回退到内置安装包
+            await InstallEmbeddedAsync(status);
         }
         finally
         {
@@ -209,6 +268,9 @@ public class OpenSteamToolService : IOpenSteamToolService
     public Task UninstallAsync()
     {
         var steamPath = GetSteamPath() ?? throw new InvalidOperationException("无法检测 Steam 路径");
+        TryKillSteamProcesses();
+        CleanConflictFiles(steamPath);
+
         var removed = 0;
         foreach (var dll in RequiredDlls)
         {
@@ -220,15 +282,47 @@ public class OpenSteamToolService : IOpenSteamToolService
                     File.Delete(path);
                     removed++;
                 }
-                catch (UnauthorizedAccessException)
+                catch (Exception ex)
                 {
-                    throw new InvalidOperationException($"无法删除 {dll}，请确保 Steam 已关闭后再试");
+                    LogService.Warn("内核卸载", $"删除 {dll} 失败: {ex.Message}");
                 }
             }
         }
-        if (removed == 0)
-            throw new InvalidOperationException("未检测到已安装的 OpenSteamTool 文件");
         return Task.CompletedTask;
+    }
+
+    private static void CleanConflictFiles(string steamPath)
+    {
+        var conflictFiles = new[] { "steam.cfg", "hid.dll" };
+        foreach (var file in conflictFiles)
+        {
+            var p = Path.Combine(steamPath, file);
+            if (File.Exists(p))
+            {
+                try { File.Delete(p); } catch { }
+            }
+        }
+        var stPluginDir = Path.Combine(steamPath, "config", "stplug-in");
+        if (Directory.Exists(stPluginDir))
+        {
+            try { Directory.Delete(stPluginDir, recursive: true); } catch { }
+        }
+    }
+
+    public static void TryKillSteamProcesses()
+    {
+        try
+        {
+            foreach (var proc in Process.GetProcessesByName("steam"))
+            {
+                try { proc.Kill(); proc.WaitForExit(3000); } catch { }
+            }
+            foreach (var proc in Process.GetProcessesByName("steamwebhelper"))
+            {
+                try { proc.Kill(); proc.WaitForExit(1000); } catch { }
+            }
+        }
+        catch { }
     }
 
     // ========== 辅助方法 ==========

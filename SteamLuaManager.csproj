@@ -14,7 +14,7 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <Title>喜加一</Title>
     <Product>喜加一</Product>
-    <Version>1.8.2</Version>
+    <Version>1.8.3</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,6 +46,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\SvcMonitor.zip" />
+    <EmbeddedResource Include="Resources\OpenSteamTool.zip" />
   </ItemGroup>
 
   <ItemGroup>
