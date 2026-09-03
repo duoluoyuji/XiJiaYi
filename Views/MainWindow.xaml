@@ -202,13 +202,14 @@
                               HorizontalScrollBarVisibility="Disabled"
                               Padding="12,0,12,8">
                     <StackPanel>
-                    <TextBlock Text="功能导航" FontSize="11" Margin="10,0,0,6"
-                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
                     <RadioButton x:Name="HomeItem" GroupName="Nav" Tag="Home"
                                  Style="{StaticResource SidebarNavStyle}" Content="我的游戏库"
                                  Checked="NavItem_Checked"/>
                     <RadioButton x:Name="ScriptDownloadItem" GroupName="Nav" Tag="ScriptDownload"
                                  Style="{StaticResource SidebarNavStyle}" Content="入库管理"
+                                 Checked="NavItem_Checked"/>
+                    <RadioButton x:Name="NewGamesItem" GroupName="Nav" Tag="NewGames"
+                                 Style="{StaticResource SidebarNavStyle}" Content="热门游戏"
                                  Checked="NavItem_Checked"/>
                     <RadioButton x:Name="ExtractionItem" GroupName="Nav" Tag="Extraction"
                                  Style="{StaticResource SidebarNavStyle}" Content="提取授权"

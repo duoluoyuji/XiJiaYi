@@ -25,7 +25,7 @@ namespace SteamLuaManager.Views;
 
 public partial class MainWindow : Window
 {
-    private readonly string[] _navOrder = ["Home", "ScriptDownload", "Extraction", "Authorization", "Achievement", "Save", "OnlineFix", "Trainer", "Settings"];
+    private readonly string[] _navOrder = ["Home", "ScriptDownload", "NewGames", "Extraction", "Authorization", "Achievement", "Save", "OnlineFix", "Trainer", "Settings"];
     private string _prevTag = "Home";
 
     /// <summary>当前页面 tag，供全局操作日志标注上下文。</summary>
@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private readonly ISteamPathService _steamPathService;
     private readonly SettingsViewModel _settingsViewModel;
     private readonly ScriptDownloadViewModel _scriptDownloadViewModel;
+    private readonly NewGamesViewModel _newGamesViewModel;
     private readonly ExtractionViewModel _extractionViewModel;
     private readonly TrainerViewModel _trainerViewModel;
     private readonly AchievementViewModel _achievementViewModel;
@@ -44,6 +45,7 @@ public partial class MainWindow : Window
     private readonly HomeView _homeView;
     private readonly SettingsView _settingsView;
     private readonly ScriptDownloadView _scriptDownloadView;
+    private readonly NewGamesView _newGamesView;
     private readonly ExtractionView _extractionView;
     private readonly TrainerView _trainerView;
     private readonly AchievementView _achievementView;
@@ -55,7 +57,7 @@ public partial class MainWindow : Window
     private TrayIconManager? _trayIcon;
     private bool _exitRequested;
 
-    public MainWindow(MainViewModel viewModel, SettingsViewModel settingsViewModel, ScriptDownloadViewModel scriptDownloadViewModel, ExtractionViewModel extractionViewModel, TrainerViewModel trainerViewModel, AchievementViewModel achievementViewModel, AuthorizationViewModel authorizationViewModel, SaveViewModel saveViewModel, ISettingsService settingsService, ISteamPathService steamPathService, IOpenSteamToolService openSteamToolService)
+    public MainWindow(MainViewModel viewModel, SettingsViewModel settingsViewModel, ScriptDownloadViewModel scriptDownloadViewModel, NewGamesViewModel newGamesViewModel, ExtractionViewModel extractionViewModel, TrainerViewModel trainerViewModel, AchievementViewModel achievementViewModel, AuthorizationViewModel authorizationViewModel, SaveViewModel saveViewModel, ISettingsService settingsService, ISteamPathService steamPathService, IOpenSteamToolService openSteamToolService)
     {
         InitializeComponent();
         CurrentPage = "Home";
@@ -64,6 +66,7 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         _settingsViewModel = settingsViewModel;
         _scriptDownloadViewModel = scriptDownloadViewModel;
+        _newGamesViewModel = newGamesViewModel;
         _extractionViewModel = extractionViewModel;
         _trainerViewModel = trainerViewModel;
         _achievementViewModel = achievementViewModel;
@@ -81,6 +84,7 @@ public partial class MainWindow : Window
         _homeView = new HomeView { DataContext = _viewModel };
         _settingsView = new SettingsView { DataContext = settingsViewModel };
         _scriptDownloadView = new ScriptDownloadView { DataContext = scriptDownloadViewModel };
+        _newGamesView = new NewGamesView { DataContext = newGamesViewModel };
         _extractionView = new ExtractionView { DataContext = extractionViewModel };
         _trainerView = new TrainerView { DataContext = trainerViewModel };
         _achievementView = new AchievementView { DataContext = achievementViewModel };
@@ -402,6 +406,7 @@ public partial class MainWindow : Window
             "Home" => _homeView,
             "Settings" => _settingsView,
             "ScriptDownload" => _scriptDownloadView,
+            "NewGames" => _newGamesView,
             "Extraction" => _extractionView,
             "Trainer" => _trainerView,
             "Achievement" => _achievementView,
@@ -977,6 +982,7 @@ public partial class MainWindow : Window
         {
             "Home" => ("我的游戏库", "管理已入库的 Steam 游戏"),
             "ScriptDownload" => ("入库管理", "搜索并入库新的游戏"),
+            "NewGames" => ("热门游戏", "热门游戏推荐与一键入库"),
             "Extraction" => ("提取授权", "从 Steam 账号提取游戏清单与成就数据"),
             "Authorization" => ("授权管理", "管理游戏授权与票据信息"),
             "Trainer" => ("修改器", "支持中英文搜索、热门推荐与一键下载"),

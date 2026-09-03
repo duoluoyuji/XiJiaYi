@@ -225,7 +225,8 @@ public partial class App : Application
 
         services.AddTransient<MainViewModel>();
         services.AddTransient<SettingsViewModel>();
-        services.AddTransient<ScriptDownloadViewModel>();
+        services.AddSingleton<ScriptDownloadViewModel>();
+        services.AddTransient<NewGamesViewModel>();
         services.AddTransient<ExtractionViewModel>();
         services.AddTransient<TrainerViewModel>();
         services.AddTransient<AchievementViewModel>();
