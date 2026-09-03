@@ -1,80 +1,105 @@
 # 喜加一（XiJiaYi）
 
-基于 WPF + .NET 8 开发的现代化 Steam 游戏管理工具（适配 OpenSteamTool 内核）。从制作到发布皆由ChatGPT一手包办，有问题不要问我，我也不懂
+基于 WPF + .NET 8 开发的现代高级 Steam 游戏管理与生态工具（深度适配开源 OpenSteamTool 内核）。
 
-## 功能一览
+从制作到发布皆由 ChatGPT 一手包办，有问题不要问我，我也不懂。
+
+---
+
+## 📸 功能一览
+
 <img width="1755" height="1182" alt="image" src="https://github.com/user-attachments/assets/974bd64d-6764-4c9d-8603-5f63d2de95af" />
 
+---
 
+## ✨ 核心特性
 
+### 🎮 我的游戏库
+- **现代卡片视图**：自动抓取高清封面与中文名称，支持大卡片网格与紧凑列表双视图无缝切换。
+- **智能检索与筛选**：支持按游戏名、AppID 模糊搜索，支持按已启用/已禁用状态筛选与多维排序。
+- **批量管理**：支持一键批量启用、批量禁用、批量删除游戏清单。
+- **版本固定**：独创清单版本固定技术，可锁定到当前已安装版本或 Steam 最新发布版本，防止补丁更新导致游戏无法启动。
+- **DLC 补全查询**：卡片菜单一键深度查询该游戏的所有清单 DLC，支持一键补全入库。
 
+### 🔑 D加密（Denuvo）授权体系
+- **正版号一键授权（本机）**：已拥有正版游戏的账号登录时，一键从 Steam 提取票据并写入注册表，换号免购买直接离线畅玩。
+- **提取并导出授权文件（分享好友）**：一键生成独立授权票据文件，自动保存至桌面【喜加一授权导出】目录并自动高亮选中文件，随手拖进聊天软件即可分享。
+- **多格式授权导入**：支持 `.txt`（tickets）、`.cw`、`.shiki`、`.json` 等全格式授权文件，一键注入注册表生效。
+- **合规指引与状态监控**：直观展示票据字节数与有效性，内置 Denuvo 官方 30 分钟验证时效与单日 5 台设备激活限制的温馨提示。
 
-### 游戏库
-- 已入库游戏自动展示封面与中文名，卡片 / 列表布局自由切换
-- 搜索、排序、筛选、批量启用/禁用/删除
-- 拖拽 .lua（游戏清单）与 .bin（成就数据）一键导入
-- 版本固定：将清单固定到当前安装版本或 Steam 最新版本
-- DLC 查询与一键补全入库
+### 🚀 全局智能拖拽与自动识别补全
+- **全窗口拖拽支持**：无需停留在指定页面，在软件任意界面直接拖入文件。
+- **授权自动补全入库**：拖入他人发来的授权文件时，软件自动解析 AppID。若游戏尚未入库，自动提示并全自动完成“清单入库 + 授权写入”，一步到位！
+- **清单与成就拖入**：直接拖入 `.lua`（游戏清单）或 `.bin`（成就数据）瞬间完成入库。
+- **Fluent 动态视觉反馈**：文件移入窗口时，屏幕中央即刻展现虚线边框与毛玻璃动画遮罩。
 
-### 入库管理
-- 按 AppID / 游戏名搜索并入库新游戏
-- 多数据源获取 depot 密钥（含本地缓存仓库与远程清单仓库，自动更新）
+### 🔥 热门游戏（官方同步）
+- **官方热销实时抓取**：直连 Steam 官方热销商品榜，实时拉取前 30 名热门大作。
+- **纯游戏智能过滤**：全自动剔除免费游戏、DLC 扩展包、Steam Deck 等硬件外设及实体配件，只收录纯游戏。
+- **一键极速入库**：热门榜单中看中哪款，直接点击即可一键加入 Steam 游戏库。
 
-### 授权
-- 从正版账号提取游戏清单与成就数据（Lua / Bin）
-- AppTicket / ETicket 授权提取、管理、拖拽导入
+### 📦 入库管理
+- **多数据源 Depot 检索**：按 AppID 或名称搜索新游戏，接入本地缓存仓库 V1/V2、ShikiLua 内置库与远程清单仓库，自动同步最新 DepotKey。
 
-### 修改器
-- 内置搜索下载：支持中英文游戏名搜索（中文名自动解析）、热门推荐、最新发布、一键下载与管理
-- 数据来源：风灵月影官网（flingtrainer.com）
+### ⚡ 修改器（风灵月影官方源）
+- **内置搜索下载**：集成风灵月影官方资源，支持中英文双向模糊解析搜索。
+- **热门推荐与排行**：实时查看热门修改器榜单，支持一键极速下载、本地版本管理与直接启动运行。
 
-### 成就管理
-- 查看 / 解锁 / 回锁已拥有游戏的 Steam 成就
+### 🏆 成就管理（SAM 本地驱动）
+- **本地安全读写**：基于开源 SAM API，安全读取并修改已拥有的 Steam 游戏成就。
+- **批量与自定义**：支持一键全解锁、一键回锁（重置成就）、单项自定义勾选及成就名称搜索。
 
-### 在线联机
-- 以 SpaceWar(480) 身份启动游戏（内核启动参数 `-onlinefix`），通过 AppID 480 大厅匹配实现好友联机
+### 💾 存档管理（多重防护）
+- **本地快照与恢复**：自动扫描各盘符 Steam 远程存档目录（userdata/remote），恢复存档前自动备份当前进度，防止误操作丢档。
+- **WebDAV 云端同步**：支持坚果云、Nextcloud、Alist、群晖等任意 WebDAV 服务，跨设备无缝同步游戏进度。
+- **完美存档一键替换**：支持 ZIP/文件夹直接导入，自动进行 64 位与 32 位 SteamID 智能计算与映射对齐。
 
-### 存档管理
-- 自动扫描 Steam 本地云存档（userdata/remote）
-- 本地备份 / 一键恢复，恢复前自动再次备份
-- WebDAV 云端备份（兼容坚果云、Nextcloud、Alist 等），换电脑不丢档
-- 完美存档一键替换：ZIP / 文件夹导入，自动修正存档内 Steam 账号 ID（64 位与 3 位自动换算）
+### 🌐 在线联机（SpaceWar 体系）
+- **内核驱动联机**：由 OpenSteamTool 内核接管，以 SpaceWar(480) 身份启动游戏。
+- **跨平台匹配**：直接调用 Steam 官方好友与大厅匹配系统，享受低延迟联机对战。
 
-### 界面与皮肤
-- 纯黑深色 Fluent 风格界面，多套配色与动漫壁纸皮肤
-- 启动时自动检查更新（GitHub / Gitee Releases），发现新版本弹窗提示下载
+### 🛠️ 快捷助手与内核生态
+- **Steam 快捷助手**：侧边栏快速启动 Steam、快速重启 Steam、免密多账号极速切换（带头像与昵称展示）。
+- **内置开源 OpenSteamTool 1.4.8**：程序资源已内嵌最新开源内核，零网络依赖，断网也能秒速安装。
+- **第三方冲突智能修复**：遇到第三方闭源 SteamTools 残留时自动预警，支持一键安全清理冲突（`steam.cfg`、`stplug-in` 等）并换装开源内核。
+- **后台服务守护（SvcMonitor）**：配套 Windows 服务，提供防闪退与进程守护。
 
-## 环境要求
+---
 
-- Windows 10 / 11（64 位）
-- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)
-- Steam + OpenSteamTool 内核
+## 💻 环境要求
 
-## 构建
+- **操作系统**：Windows 10 / 11（64 位）
+- **运行环境**：[.NET 8 Desktop Runtime](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)
+- **依赖平台**：Steam 客户端（搭载开源 OpenSteamTool 内核）
+
+---
+
+## 🛠️ 构建指南
 
 ```bash
 dotnet publish SteamLuaManager.csproj -c Release -r win-x64 --self-contained false \
   -o out /p:PublishSingleFile=true /p:DebugType=None /p:DebugFullType=None
 ```
 
-## 致谢（所用开源项目与代码）
+---
 
-本项目基于以下开源项目重构、扩展而来，特此致谢：
+## 💖 致谢
 
-| 项目 | 用途 | 许可 |
+本项目基于以下优秀的开源项目重构、扩展与整合而来，特此致敬：
+
+| 项目 | 用途说明 | 许可证 |
 |---|---|---|
-| [Fluent-Steam-Lua](https://github.com/huanyuejue/Fluent-Steam-Lua) | 原始界面与入库/提取基础框架 | zlib |
-| [Steam Achievement Manager (SamApi)](https://github.com/gibbed/SteamAchievementManager)（Rick/gibbed） | 成就读写 API（Services/SamApi） | zlib |
-| OpenSteamTool | Steam 内核（授权、清单、联机支持） | 见其项目主页 |
-| ManifestHub-GUI | 在线联机与清单数据源参考 | 见其项目主页 |
-| [iNKORE.UI.WPF.Modern](https://github.com/Kinnara/ModernWpf) | Fluent 风格 UI 控件 | MIT |
-| [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) | MVVM 框架 | MIT |
-| [HtmlAgilityPack](https://html-agility-pack.net/) | HTML 解析 | MIT |
-| [Tomlyn](https://github.com/xoofx/Tomlyn) | TOML 配置解析 | BSD-2-Clause |
-| [Microsoft.Extensions.DependencyInjection](https://github.com/dotnet/runtime) | 依赖注入 | MIT |
+| [Fluent-Steam-Lua](https://github.com/huanyuejue/Fluent-Steam-Lua) | 现代化界面与基础框架参考 | zlib |
+| [Steam Achievement Manager (SamApi)](https://github.com/gibbed/SteamAchievementManager) | 本地成就读写支持库 | zlib |
+| [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool) | 开源 Steam 注入内核（清单、授权、联机） | GPL-3.0 |
+| [iNKORE.UI.WPF.Modern](https://github.com/Kinnara/ModernWpf) | Windows 11 Fluent 风格 UI 控件库 | MIT |
+| [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) | 高性能 MVVM 架构支撑 | MIT |
+| [HtmlAgilityPack](https://html-agility-pack.net/) | 高性能 HTML 解析提取器 | MIT |
+| [Tomlyn](https://github.com/xoofx/Tomlyn) | 现代 TOML 配置文件读写库 | BSD-2-Clause |
+| [Microsoft.Extensions.DependencyInjection](https://github.com/dotnet/runtime) | 官方依赖注入容器 | MIT |
 
-各项目的完整许可文件请见其源码仓库；本仓库内保留的第三方代码（如 `Services/SamApi/LICENSE.txt`）均已随附原始许可声明。
+---
 
-## 声明
+## ⚠️ 声明
 
-本软件仅供学习交流使用，请支持正版游戏。使用本工具产生的任何后果由使用者自行承担。
+本软件仅供编程学习与技术交流使用，请支持购买 Steam 官方正版游戏。因使用本工具产生的一切后果由使用者自行承担。

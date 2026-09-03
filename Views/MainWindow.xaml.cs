@@ -18,8 +18,10 @@ using iNKORE.UI.WPF.Modern;
 using iNKORE.UI.WPF.Modern.Controls;
 using iNKORE.UI.WPF.Modern.Controls.Helpers;
 using iNKORE.UI.WPF.Modern.Helpers.Styles;
+using SteamLuaManager.Models;
 using SteamLuaManager.Services;
 using SteamLuaManager.ViewModels;
+using MessageBox = iNKORE.UI.WPF.Modern.Controls.MessageBox;
 
 namespace SteamLuaManager.Views;
 
@@ -223,11 +225,16 @@ public partial class MainWindow : Window
                 break;
 
             case "检测到不适配的 SteamTools":
-                await ShowModernDialogAsync(
-                    "不适配的 SteamTools",
-                    "检测到 SteamTools（闭源），该内核与本软件不适配。\n\n" +
-                    "本软件目前仅适配 OpenSteamTool（开源内核）。\n" +
-                    "请卸载 SteamTools 后，在左侧栏「内核管理」中安装 OpenSteamTool 再使用。");
+                var fixNow = await ShowModernConfirmAsync(
+                    "内核冲突提示",
+                    "检测到第三方 SteamTools（闭源）内核及残留配置，与本软件不适配。\n\n" +
+                    "本软件采用开源的 OpenSteamTool 内核，更稳定、且支持最新游戏与持续更新。\n\n" +
+                    "是否立即一键自动清理冲突残留，并安装 OpenSteamTool 内核？",
+                    "一键修复并安装");
+                if (fixNow)
+                {
+                    await InstallKernelAsync();
+                }
                 break;
         }
 
@@ -390,10 +397,7 @@ public partial class MainWindow : Window
 
         var prevIndex = Array.IndexOf(_navOrder, _prevTag);
         var newIndex = Array.IndexOf(_navOrder, tag);
-        if (prevIndex >= 0 && newIndex >= 0)
-        {
-            ContentTransition.Transition = newIndex > prevIndex ? TransitionType.Down : TransitionType.Up;
-        }
+        ContentTransition.Transition = TransitionType.Normal;
         _prevTag = tag;
 
         SwitchView(tag);
@@ -438,24 +442,27 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _dropHintHideTimer = new() { Interval = TimeSpan.FromMilliseconds(120) };
 
-    /// <summary>判断文件是否为授权票据文件（tickets.txt，或内容含票据标记的 .txt）。</summary>
+    /// <summary>判断文件是否为授权票据文件（tickets.txt，或内容含票据标记的 .txt、.cw、.shiki、.json）。</summary>
     private static bool IsTicketFile(string path)
     {
         try
         {
-            if (!path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) return false;
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+            if (ext is ".cw" or ".shiki") return true;
             if (string.Equals(Path.GetFileNameWithoutExtension(path), "tickets",
                     StringComparison.OrdinalIgnoreCase))
                 return true;
+
+            if (ext is not (".txt" or ".json")) return false;
 
             using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             var buf = new byte[1024];
             var n = fs.Read(buf, 0, buf.Length);
             if (n <= 0) return false;
             var head = Encoding.UTF8.GetString(buf, 0, n);
-            return head.Contains("appid:", StringComparison.OrdinalIgnoreCase) ||
-                   head.Contains("appticket", StringComparison.OrdinalIgnoreCase) ||
-                   head.Contains("eticket", StringComparison.OrdinalIgnoreCase);
+            return head.Contains("appid", StringComparison.OrdinalIgnoreCase) &&
+                   (head.Contains("appticket", StringComparison.OrdinalIgnoreCase) ||
+                    head.Contains("eticket", StringComparison.OrdinalIgnoreCase));
         }
         catch
         {
@@ -477,15 +484,6 @@ public partial class MainWindow : Window
             return;
         }
         var isTicket = IsTicketDrop(e.Data);
-        if (isTicket && CurrentPage != "Authorization")
-        {
-            // 授权票据仅在授权页支持拖拽导入：其他页面不显示遮罩、不响应
-            e.Effects = DragDropEffects.None;
-            DropAuthHintGrid.Visibility = Visibility.Collapsed;
-            DropHintGrid.Visibility = Visibility.Collapsed;
-            _dropHintHideTimer.Stop();
-            return;
-        }
         e.Effects = DragDropEffects.Copy;
         DropAuthHintGrid.Visibility = isTicket ? Visibility.Visible : Visibility.Collapsed;
         DropHintGrid.Visibility = isTicket ? Visibility.Collapsed : Visibility.Visible;
@@ -508,21 +506,88 @@ public partial class MainWindow : Window
         if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
         var files = (string[])e.Data.GetData(DataFormats.FileDrop)!;
 
-        var tickets = CurrentPage == "Authorization"
-            ? files.Where(IsTicketFile).ToArray()
-            : Array.Empty<string>();
+        var tickets = files.Where(IsTicketFile).ToArray();
         var others = files.Where(f => !IsTicketFile(f)).ToArray();
 
         if (tickets.Length > 0)
         {
             LogService.Info("操作", $"拖拽导入授权 {tickets.Length} 个文件: {string.Join("; ", tickets)}");
             foreach (var ticket in tickets)
-                await _authorizationViewModel.ImportFileCommand.ExecuteAsync(ticket);
+                await HandleGlobalTicketDropAsync(ticket);
         }
         if (others.Length > 0)
         {
             LogService.Info("操作", $"拖拽入库 {others.Length} 个文件: {string.Join("; ", others)}");
             await _viewModel.HandleDropAsync(others);
+        }
+    }
+
+    private async Task HandleGlobalTicketDropAsync(string ticketPath)
+    {
+        try
+        {
+            var authService = App.ServiceProvider?.GetRequiredService<IAuthorizationService>();
+            if (authService == null)
+            {
+                MessageBox.Show("授权服务不可用", "导入授权", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var parsed = authService.ParseAuthFile(ticketPath);
+            if (!parsed.Ok)
+            {
+                MessageBox.Show($"解析授权文件失败：{parsed.Error}", "导入授权失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var existingGame = _viewModel.Games.FirstOrDefault(g => g.AppId == (int)parsed.AppId);
+            var gameName = existingGame?.GameName ?? $"AppID {parsed.AppId}";
+
+            if (existingGame == null)
+            {
+                var ask = MessageBox.Show(
+                    $"检测到《{gameName}》的 D加密授权文件。\n\n当前游戏库中尚未添加该游戏（未入库）。\n\n是否立即一键入库该游戏并写入授权？\n（点击“确定”将自动生成清单加入 Steam 库，让游戏在 Steam 中直接可见并可启动）",
+                    "发现新游戏授权",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (ask == MessageBoxResult.Yes)
+                {
+                    await _scriptDownloadViewModel.ImportGameAsync((int)parsed.AppId);
+                    await _viewModel.RefreshGamesCommand.ExecuteAsync(null);
+
+                    var ticket = new TicketData(parsed.AppId, parsed.SteamId, parsed.AppTicket!, parsed.ETicket!, ticketPath);
+                    var importRes = authService.ImportTicket(ticket);
+
+                    var postGame = _viewModel.Games.FirstOrDefault(g => g.AppId == (int)parsed.AppId);
+                    var postName = postGame?.GameName ?? gameName;
+
+                    var tip = !string.IsNullOrEmpty(importRes.Warning) ? $"\n\n注意：{importRes.Warning}" : "";
+                    MessageBox.Show(
+                        $"🎉 恭喜！《{postName}》已成功自动入库，且 D加密授权已写入生效！\n\n后续重启 Steam 即可在库中看到并直接启动游玩！{tip}",
+                        "入库与授权成功",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
+            }
+
+            var ticketData = new TicketData(parsed.AppId, parsed.SteamId, parsed.AppTicket!, parsed.ETicket!, ticketPath);
+            var result = authService.ImportTicket(ticketData);
+
+            if (!string.IsNullOrEmpty(result.Warning) && result.AppTicketBytes == 0)
+            {
+                MessageBox.Show($"写入授权失败：{result.Warning}", "导入授权文件", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            else
+            {
+                var tip = !string.IsNullOrEmpty(result.Warning) ? $"\n\n注意：{result.Warning}" : "";
+                MessageBox.Show($"《{gameName}》D加密授权已成功导入生效！\n\n后续直接从 Steam 正常启动该游戏即可。{tip}", "导入授权成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"处理授权文件异常：{ex.Message}", "导入授权失败", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -810,27 +875,31 @@ public partial class MainWindow : Window
 
     private async Task UninstallKernelAsync()
     {
-        if (!_openSteamToolService.IsInstalled)
+        var toolType = _steamPathService.DetectSteamToolType();
+        if (toolType == SteamToolType.None)
         {
-            await ShowModernDialogAsync("提示", "未检测到已安装的 OpenSteamTool。");
+            await ShowModernDialogAsync("提示", "未检测到已安装的内核或残留文件。");
             return;
         }
 
-        var confirmed = await ShowModernConfirmAsync(
-            "确认卸载",
-            "确定要卸载 OpenSteamTool 吗？\n这将删除以下文件：\n• dwmapi.dll\n• xinput1_4.dll\n• OpenSteamTool.dll",
-            "卸载");
+        var isThirdParty = toolType == SteamToolType.SteamTools;
+        var promptTitle = isThirdParty ? "清理第三方内核残留" : "确认卸载内核";
+        var promptMsg = isThirdParty
+            ? "检测到第三方 SteamTools（闭源）残留文件与配置。\n是否立即彻底清除其残留？\n\n注意：将自动退出 Steam 进程以解除文件占用。"
+            : "确定要卸载 OpenSteamTool 内核吗？\n这将安全退出 Steam 并删除相关内核文件。";
+
+        var confirmed = await ShowModernConfirmAsync(promptTitle, promptMsg, "清理并卸载");
         if (!confirmed) return;
 
         try
         {
             await _openSteamToolService.UninstallAsync();
-            await ShowModernDialogAsync("卸载完成", "OpenSteamTool 已卸载。\n重启 Steam 后生效。");
+            await ShowModernDialogAsync("清理完成", "内核文件与冲突配置已彻底清除！\n重启 Steam 后生效。");
             RefreshTitle();
         }
         catch (Exception ex)
         {
-            await ShowModernDialogAsync("错误", $"卸载失败：{ex.Message}");
+            await ShowModernDialogAsync("错误", $"清理失败：{ex.Message}");
         }
     }
 
@@ -980,7 +1049,7 @@ public partial class MainWindow : Window
     {
         var (title, subtitle) = tag switch
         {
-            "Home" => ("我的游戏库", "管理已入库的 Steam 游戏"),
+            "Home" => ("我的游戏库", "管理已入库的 Steam 游戏 · 支持直接拖入清单与授权文件"),
             "ScriptDownload" => ("入库管理", "搜索并入库新的游戏"),
             "NewGames" => ("热门游戏", "热门游戏推荐与一键入库"),
             "Trainer" => ("修改器", "支持中英文搜索、热门推荐与一键下载"),

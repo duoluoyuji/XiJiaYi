@@ -302,7 +302,7 @@
             <!-- 页面内容 -->
             <Grid Grid.Row="1" Margin="26,6,26,24">
                 <ui:TransitioningContentControl x:Name="ContentTransition"
-                                                 Transition="RightReplace"
+                                                 Transition="Normal"
                                                  Background="{x:Null}"/>
             </Grid>
         </Grid>
@@ -405,7 +405,7 @@
                         <TextBlock Text="拖拽到此处导入授权" FontSize="18" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                    HorizontalAlignment="Center" Margin="0,16,0,0"/>
-                        <TextBlock Text="支持 tickets.txt（appticket / eticket 票据文件）" FontSize="13"
+                        <TextBlock Text="支持 tickets.txt / .cw / .shiki / .json 授权文件（未入库游戏将自动提示入库）" FontSize="12.5"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                    HorizontalAlignment="Center" Margin="0,6,0,0"/>
                     </StackPanel>
