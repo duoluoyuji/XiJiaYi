@@ -219,18 +219,50 @@ public partial class DenuvoAuthDialog : Window, INotifyPropertyChanged
         }
     }
 
-    private void OpenBackupFolder_Click(object sender, RoutedEventArgs e)
+    private async void ExportFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsBusy) return;
+        IsBusy = true;
+        SetFeedback("正在提取并导出授权文件到桌面...", Brushes.SkyBlue);
+
+        try
+        {
+            var result = await _authService.ExtractAsync(AppId);
+
+            var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            var exportDir = Path.Combine(desktopDir, "喜加一授权导出");
+            Directory.CreateDirectory(exportDir);
+
+            var safeName = string.Join("_", GameName.Split(Path.GetInvalidFileNameChars()));
+            if (string.IsNullOrWhiteSpace(safeName)) safeName = "Game";
+            var fileName = $"《{safeName}》_AppID{AppId}_授权文件.txt";
+            var targetPath = Path.Combine(exportDir, fileName);
+
+            File.Copy(result.OutputPath, targetPath, overwrite: true);
+
+            SetFeedback($"🎉 导出成功！已保存至桌面【喜加一授权导出】", new SolidColorBrush(Color.FromRgb(0x67, 0xC5, 0x87)));
+
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{targetPath}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            SetFeedback($"❌ 导出失败：{ex.Message}", Brushes.Salmon);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void OpenExportFolder_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var path = _authService.GetDefaultTicketsPath(AppId);
-            var dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(dir))
-            {
-                Directory.CreateDirectory(dir);
-                Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true });
-                SetFeedback($"已打开备份目录：{dir}", Brushes.LightGray);
-            }
+            var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            var exportDir = Path.Combine(desktopDir, "喜加一授权导出");
+            Directory.CreateDirectory(exportDir);
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{exportDir}\"") { UseShellExecute = true });
+            SetFeedback($"已打开桌面导出目录：{exportDir}", Brushes.LightGray);
         }
         catch (Exception ex)
         {
