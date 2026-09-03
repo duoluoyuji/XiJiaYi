@@ -25,7 +25,7 @@ namespace SteamLuaManager.Views;
 
 public partial class MainWindow : Window
 {
-    private readonly string[] _navOrder = ["Home", "ScriptDownload", "NewGames", "Extraction", "Authorization", "Achievement", "Save", "OnlineFix", "Trainer", "Settings"];
+    private readonly string[] _navOrder = ["Home", "ScriptDownload", "NewGames", "Achievement", "Save", "OnlineFix", "Trainer", "Settings"];
     private string _prevTag = "Home";
 
     /// <summary>当前页面 tag，供全局操作日志标注上下文。</summary>
@@ -983,8 +983,6 @@ public partial class MainWindow : Window
             "Home" => ("我的游戏库", "管理已入库的 Steam 游戏"),
             "ScriptDownload" => ("入库管理", "搜索并入库新的游戏"),
             "NewGames" => ("热门游戏", "热门游戏推荐与一键入库"),
-            "Extraction" => ("提取授权", "从 Steam 账号提取游戏清单与成就数据"),
-            "Authorization" => ("授权管理", "管理游戏授权与票据信息"),
             "Trainer" => ("修改器", "支持中英文搜索、热门推荐与一键下载"),
             "Achievement" => ("成就管理", "解锁或回锁已拥有的游戏成就"),
             "Save" => ("存档管理", "本地备份、云端同步与完美存档一键替换"),
