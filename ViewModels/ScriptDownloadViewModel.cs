@@ -258,6 +258,14 @@ public partial class ScriptDownloadViewModel : ObservableObject
         await ExecuteDownloadAsync(game.AppId.ToString());
     }
 
+    public async Task<bool> ImportGameAsync(int appId)
+    {
+        if (IsDownloading) return false;
+        await ExecuteDownloadAsync(appId.ToString());
+        return StatusMessage.StartsWith("入库成功", StringComparison.Ordinal) ||
+               StatusMessage.StartsWith("成功入库", StringComparison.Ordinal);
+    }
+
     private async Task ExecuteDownloadAsync(string gameId)
     {
         IsDownloading = true;
