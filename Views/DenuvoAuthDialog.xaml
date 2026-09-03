@@ -4,7 +4,7 @@
         xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
         xmlns:controls="clr-namespace:SteamLuaManager.Controls"
         Title="D加密授权管理"
-        Width="580" Height="520"
+        Width="580" Height="630"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ui:WindowHelper.UseModernWindowStyle="True"
@@ -21,7 +21,7 @@
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
 
-    <Grid Margin="24,12,24,20">
+    <Grid Margin="24,12,24,18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -30,7 +30,7 @@
         </Grid.RowDefinitions>
 
         <!-- 游戏基础信息头 -->
-        <Border Grid.Row="0" Margin="0,0,0,14" Padding="12" CornerRadius="8"
+        <Border Grid.Row="0" Margin="0,0,0,10" Padding="12" CornerRadius="8"
                 BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
             <Border.Background>
                 <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.5"/>
@@ -53,14 +53,14 @@
                         <TextBlock Text="{Binding AppId}" FontSize="12" FontWeight="SemiBold"
                                    Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
                     </StackPanel>
-                    <TextBlock Text="Denuvo 防篡改票据管理 · 注册表直接注入" FontSize="11" Margin="0,3,0,0"
+                    <TextBlock Text="Denuvo 防篡改票据管理 · 注册表直接注入与一键导出分享" FontSize="11" Margin="0,3,0,0"
                                Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- 状态卡片 -->
-        <Border Grid.Row="1" Margin="0,0,0,14" Padding="14,12" CornerRadius="8"
+        <Border Grid.Row="1" Margin="0,0,0,10" Padding="14,10" CornerRadius="8"
                 BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
             <Border.Background>
                 <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.4"/>
@@ -83,8 +83,8 @@
                         <TextBlock Text="{Binding StatusTitle}" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{Binding StatusTitleForeground}"/>
                     </StackPanel>
-                    <TextBlock Text="{Binding StatusDetails}" FontSize="11.5" Margin="0,4,0,0"
-                               TextWrapping="Wrap" LineHeight="18"
+                    <TextBlock Text="{Binding StatusDetails}" FontSize="11.5" Margin="0,3,0,0"
+                               TextWrapping="Wrap" LineHeight="17"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
             </Grid>
@@ -92,8 +92,8 @@
 
         <!-- 功能按钮区域 -->
         <StackPanel Grid.Row="2" VerticalAlignment="Top">
-            <!-- 正版号一键授权 -->
-            <Border Margin="0,0,0,8" Padding="12,10" CornerRadius="8"
+            <!-- 正版号一键授权（本机生效） -->
+            <Border Margin="0,0,0,6" Padding="12,8" CornerRadius="8"
                     BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
                 <Border.Background>
                     <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.3"/>
@@ -104,19 +104,19 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="正版号一键授权" FontSize="13.5" FontWeight="SemiBold"
+                        <TextBlock Text="正版号一键授权（本机）" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                        <TextBlock Text="需登录拥有正版游戏的 Steam，直接提取票据写入注册表" FontSize="11" Margin="0,2,0,0"
+                        <TextBlock Text="提取票据并直接注入本机注册表，供本机换号畅玩" FontSize="11" Margin="0,2,0,0"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
                     <Button Grid.Column="1" Click="LegitAuth_Click"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource BoolInvertConverter}}"
-                            Padding="14,6" Height="34"
+                            Padding="14,5" Height="32"
                             Style="{StaticResource AccentButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <ui:FontIcon Glyph="&#xE8D7;" FontSize="13" Margin="0,0,6,0"
+                            <ui:FontIcon Glyph="&#xE8D7;" FontSize="12" Margin="0,0,6,0"
                                          Visibility="{Binding IsBusy, Converter={StaticResource InvertedBoolToVisibilityConverter}}"/>
-                            <ui:ProgressRing Width="14" Height="14" IsActive="True" Margin="0,0,6,0"
+                            <ui:ProgressRing Width="12" Height="12" IsActive="True" Margin="0,0,6,0"
                                              Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
                             <TextBlock Text="一键授权" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -124,8 +124,8 @@
                 </Grid>
             </Border>
 
-            <!-- 导入授权文件 -->
-            <Border Margin="0,0,0,8" Padding="12,10" CornerRadius="8"
+            <!-- 提取并导出授权文件（供分享给他人） -->
+            <Border Margin="0,0,0,6" Padding="12,8" CornerRadius="8"
                     BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
                 <Border.Background>
                     <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.3"/>
@@ -136,16 +136,44 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="导入授权文件" FontSize="13.5" FontWeight="SemiBold"
+                        <TextBlock Text="提取并导出授权文件（发给他人）" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                        <TextBlock Text="支持 tickets.txt / .cw / .shiki / .json 文件（也可直接拖拽至窗口）" FontSize="11" Margin="0,2,0,0"
+                        <TextBlock Text="提取票据生成文件至桌面【喜加一授权导出】并自动高亮" FontSize="11" Margin="0,2,0,0"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Click="ExportFile_Click"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource BoolInvertConverter}}"
+                            Padding="14,5" Height="32">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:FontIcon Glyph="&#xEDE1;" FontSize="12" Margin="0,0,6,0"/>
+                            <TextBlock Text="导出文件" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- 导入授权文件 -->
+            <Border Margin="0,0,0,6" Padding="12,8" CornerRadius="8"
+                    BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
+                <Border.Background>
+                    <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.3"/>
+                </Border.Background>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="导入授权文件" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="支持 tickets.txt / .cw / .shiki / .json 文件（或直接拖拽进窗口）" FontSize="11" Margin="0,2,0,0"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
                     <Button Grid.Column="1" Click="ImportFile_Click"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource BoolInvertConverter}}"
-                            Padding="14,6" Height="34">
+                            Padding="14,5" Height="32">
                         <StackPanel Orientation="Horizontal">
-                            <ui:FontIcon Glyph="&#xE898;" FontSize="13" Margin="0,0,6,0"/>
+                            <ui:FontIcon Glyph="&#xE898;" FontSize="12" Margin="0,0,6,0"/>
                             <TextBlock Text="选择文件..." VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -153,31 +181,48 @@
             </Border>
 
             <!-- 辅助操作 -->
-            <Grid Margin="0,4,0,0">
+            <Grid Margin="0,2,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button Grid.Column="0" Click="OpenBackupFolder_Click"
-                        HorizontalAlignment="Stretch" Margin="0,0,4,0" Height="32" Padding="8,4">
+                <Button Grid.Column="0" Click="OpenExportFolder_Click"
+                        HorizontalAlignment="Stretch" Margin="0,0,4,0" Height="30" Padding="8,3">
                     <StackPanel Orientation="Horizontal">
                         <ui:FontIcon Glyph="&#xED25;" FontSize="12" Margin="0,0,6,0"/>
-                        <TextBlock Text="打开备份目录" VerticalAlignment="Center"/>
+                        <TextBlock Text="打开桌面导出目录" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
                 <Button Grid.Column="1" Click="ClearAuth_Click"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource BoolInvertConverter}}"
-                        HorizontalAlignment="Stretch" Margin="4,0,0,0" Height="32" Padding="8,4">
+                        HorizontalAlignment="Stretch" Margin="4,0,0,0" Height="30" Padding="8,3">
                     <StackPanel Orientation="Horizontal">
                         <ui:FontIcon Glyph="&#xE74D;" FontSize="12" Margin="0,0,6,0"/>
                         <TextBlock Text="清除本地授权" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </Grid>
+
+            <!-- 限制与时效温馨提示 -->
+            <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="6"
+                    BorderBrush="#25FFFFFF" BorderThickness="1" Background="#10FFFFFF">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:FontIcon Glyph="&#xE946;" FontSize="11.5" Margin="0,0,5,0"
+                                     Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="D加密官方规则与时效须知" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    </StackPanel>
+                    <TextBlock FontSize="10.5" Margin="0,3,0,0" TextWrapping="Wrap" LineHeight="16"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                        1. <Run FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}">30 分钟验证时效：</Run>导出的票据需在 30 分钟内导入并首次启动游戏通过校验（首次激活后即可长期离线畅玩，不再受限）；&#x0a;2. <Run FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}">单日 5 次设备上限：</Run>Denuvo 官方限制每个正版 Steam 账号每 24 小时最多在 5 台设备激活。
+                    </TextBlock>
+                </StackPanel>
+            </Border>
         </StackPanel>
 
         <!-- 底部消息与关闭按钮 -->
-        <Grid Grid.Row="3" Margin="0,10,0,0">
+        <Grid Grid.Row="3" Margin="0,8,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>

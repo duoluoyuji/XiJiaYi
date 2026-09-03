@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
@@ -269,6 +270,9 @@ public partial class HomeView : UserControl
             case "denuvo-legit":
                 await HandleDenuvoLegitAuthAsync(_activeMenuGame);
                 break;
+            case "denuvo-export":
+                await HandleDenuvoExportFileAsync(_activeMenuGame);
+                break;
             case "denuvo-import":
                 await HandleDenuvoImportFileAsync(_activeMenuGame);
                 break;
@@ -367,7 +371,9 @@ public partial class HomeView : UserControl
 
     private static CardMenuItem[] BuildDenuvoSubmenu(GameInfo game) =>
     [
-        new CardMenuItem("denuvo-legit", "正版号一键授权"),
+        new CardMenuItem("denuvo-legit", "正版号一键授权（本机）"),
+        CardMenuItem.Separator(),
+        new CardMenuItem("denuvo-export", "提取并导出授权文件..."),
         CardMenuItem.Separator(),
         new CardMenuItem("denuvo-import", "导入授权文件..."),
         CardMenuItem.Separator(),
@@ -406,6 +412,40 @@ public partial class HomeView : UserControl
         catch (Exception ex)
         {
             MessageBox.Show($"正版号授权失败：{ex.Message}\n\n请确保已登录拥有该游戏的 Steam 正版账号后重试。", "正版号授权失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task HandleDenuvoExportFileAsync(GameInfo game)
+    {
+        try
+        {
+            var authService = App.ServiceProvider?.GetRequiredService<IAuthorizationService>();
+            if (authService == null)
+            {
+                MessageBox.Show("授权服务不可用", "提取授权", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var result = await authService.ExtractAsync((uint)game.AppId);
+
+            var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            var exportDir = Path.Combine(desktopDir, "喜加一授权导出");
+            Directory.CreateDirectory(exportDir);
+
+            var safeName = string.Join("_", game.GameName.Split(Path.GetInvalidFileNameChars()));
+            if (string.IsNullOrWhiteSpace(safeName)) safeName = "Game";
+            var fileName = $"《{safeName}》_AppID{game.AppId}_授权文件.txt";
+            var targetPath = Path.Combine(exportDir, fileName);
+
+            File.Copy(result.OutputPath, targetPath, overwrite: true);
+
+            MessageBox.Show($"《{game.GameName}》授权文件已成功提取并导出到桌面！\n\n保存位置：\n{targetPath}\n\n已为您自动打开文件夹并高亮选中该文件，直接发送给对方即可。\n\n⚠️ 重要须知：\n1. 首次验证时效约 30 分钟：请让接收方尽快导入并启动一次游戏（首次成功激活后即可长期离线畅玩）；\n2. 单日 5 台设备上限：Denuvo 官方限制每个正版账号每 24 小时最多在 5 台设备激活。", "提取导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
+
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{targetPath}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"提取授权失败：{ex.Message}\n\n请确保已登录拥有该游戏的 Steam 正版账号后重试。", "提取失败", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
