@@ -156,7 +156,7 @@ public class LuaFileManager : ILuaFileManager, IDisposable
         var content = File.ReadAllText(game.LuaFilePath);
         game.Depots.Clear();
 
-        // 尝试从文件注释读取游戏名（KeySteam 生成的 -- app_name: xxx）
+        // 尝试从文件注释读取游戏名（-- app_name: xxx）
         var nameMatch = AppNameRegex.Match(content);
         if (nameMatch.Success)
         {

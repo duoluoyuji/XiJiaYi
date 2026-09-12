@@ -695,14 +695,14 @@ public partial class MainWindow : Window
         {
             var confirmed = await ShowModernConfirmAsync(
                 "确认部署",
-                "KeySteamTool (LTS) 内核已存在，是否重新部署覆盖？",
+                "运行核心驱动已存在，是否重新部署覆盖？",
                 "重新部署");
             if (!confirmed) return;
         }
 
         try
         {
-            ShowKernelOverlay("正在部署 KeySteamTool (LTS) 内核...");
+            ShowKernelOverlay("正在部署运行核心驱动...");
             _kernelCts = new CancellationTokenSource();
             try
             {
@@ -722,7 +722,7 @@ public partial class MainWindow : Window
                 HideKernelOverlay();
             }
 
-            await ShowModernDialogAsync("部署完成", "KeySteamTool (LTS) 内核已成功安装并就绪！\n已全面兼容 9月9日 后的 Steam 更新。\n请启动或重启 Steam 后即可生效。");
+            await ShowModernDialogAsync("部署完成", "运行核心驱动已成功安装并就绪！\n负责 Steam 游戏清单加载与运行环境底层支持。\n请启动或重启 Steam 后即可生效。");
             RefreshTitle();
         }
         catch (OperationCanceledException) { }
@@ -736,20 +736,20 @@ public partial class MainWindow : Window
     {
         if (!_openSteamToolService.IsInstalled)
         {
-            await ShowModernDialogAsync("提示", "未检测到内核，请点击「安装内核」进行一键部署。");
+            await ShowModernDialogAsync("提示", "未检测到驱动，请点击「一键部署」进行安装。");
             return;
         }
 
         var localVersion = await _openSteamToolService.GetLocalVersionAsync() ?? "未知";
-        if (localVersion.Contains("KeySteamTool"))
+        if (localVersion.Contains("运行核心") || localVersion.Contains("KeySteamTool"))
         {
-            await ShowModernDialogAsync("无需更新", $"当前已是最新内核：{localVersion}\n内置 KeySteamTool 完整架构，已支持 9月9日 后的 Steam 更新。");
+            await ShowModernDialogAsync("无需更新", $"当前已是最新驱动：{localVersion}\n底层架构完整，已支持清单高速加载与环境运行。");
             return;
         }
 
         var confirmed = await ShowModernConfirmAsync(
-            "内核升级",
-            $"检测到当前使用的是 {localVersion}（9月9日后已无法正常下载）。\n\n是否立即一键升级至 KeySteamTool (LTS) 最新内核？",
+            "驱动升级",
+            $"检测到当前使用的是 {localVersion}（旧版驱动已失效）。\n\n是否立即一键升级至最新运行核心驱动？",
             "立即升级");
         if (!confirmed) return;
 
@@ -761,15 +761,15 @@ public partial class MainWindow : Window
         var toolType = _steamPathService.DetectSteamToolType();
         if (toolType == SteamToolType.None)
         {
-            await ShowModernDialogAsync("提示", "未检测到已安装的内核或残留文件。");
+            await ShowModernDialogAsync("提示", "未检测到已安装的驱动或残留文件。");
             return;
         }
 
         var isThirdParty = toolType == SteamToolType.SteamTools;
-        var promptTitle = isThirdParty ? "清理第三方内核残留" : "确认卸载内核";
+        var promptTitle = isThirdParty ? "清理第三方驱动残留" : "确认卸载驱动";
         var promptMsg = isThirdParty
             ? "检测到第三方 SteamTools（闭源）残留文件与配置。\n是否立即彻底清除其残留？\n\n注意：将自动退出 Steam 进程以解除文件占用。"
-            : "确定要卸载 KeySteamTool 内核吗？\n这将安全退出 Steam 并删除相关内核文件（不影响游戏与脚本）。";
+            : "确定要卸载运行核心驱动吗？\n这将安全退出 Steam 并删除相关驱动文件（不影响游戏与脚本）。";
 
         var confirmed = await ShowModernConfirmAsync(promptTitle, promptMsg, "清理并卸载");
         if (!confirmed) return;
@@ -777,7 +777,7 @@ public partial class MainWindow : Window
         try
         {
             await _openSteamToolService.UninstallAsync();
-            await ShowModernDialogAsync("清理完成", "内核文件与遗留冲突配置已彻底清除！\n重启 Steam 后生效。");
+            await ShowModernDialogAsync("清理完成", "驱动文件与遗留冲突配置已彻底清除！\n重启 Steam 后生效。");
             RefreshTitle();
         }
         catch (Exception ex)

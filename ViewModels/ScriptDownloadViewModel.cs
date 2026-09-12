@@ -48,8 +48,8 @@ public partial class ScriptDownloadViewModel : ObservableObject
     public bool IsLocalCacheMode => _currentDownloadMode is "ShikiLua" or "DepotKey2" or "DepotKey";
     public string CurrentDataSourceLabel => _currentDownloadMode switch
     {
-        "ShikiLua" => "ShikiLua内置库",
-        "DepotKey2" => "本地缓存仓库V2",
+        "ShikiLua" => "内置离线高速库",
+        "DepotKey2" => "备用镜像库",
         _ => "远程清单仓库"
     };
 
@@ -395,9 +395,28 @@ public partial class ScriptDownloadViewModel : ObservableObject
 
         AddLog($"✅ 脚本配置文件已保存：{Path.GetFileName(luaPath)}");
 
+        try
+        {
+            AddLog("⚡ 正在自动同步与补全游戏清单缓存 (depotcache)...");
+            await _manifestService.SyncDepotcacheAsync();
+            var (manifestOk, manifestCount, manifestMsg) = await _manifestService.EnsureManifestsCachedAsync(appId);
+            if (manifestOk && manifestCount > 0)
+            {
+                AddLog($"✅ 已就绪 {manifestCount} 个游戏清单（已双向同步至 depotcache）");
+            }
+            else
+            {
+                AddLog($"ℹ️ 清单提示：{manifestMsg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("入库", $"入库自动补齐清单异常: {ex.Message}");
+        }
+
         if (_steamPathService.DetectSteamToolType() == SteamToolType.None)
         {
-            AddLog("💡 提示：未检测到 KeySteamTool 内核，请在「设置 - 内核管理」中一键安装");
+            AddLog("💡 提示：未检测到运行核心驱动，请在「设置」中一键部署");
         }
 
         AddLog($"🎉 入库成功！《{queryResult.AppName}》已添加至 Steam 插件目录");
