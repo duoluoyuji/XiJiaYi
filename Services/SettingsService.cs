@@ -12,7 +12,7 @@ public class AppSettings
     public string SelectedViewMode { get; set; } = "卡片";
     public string AchievementViewMode { get; set; } = "卡片";
     public string SelectedBackdrop { get; set; } = "Acrylic10";
-    public string DownloadMode { get; set; } = "DepotKey";
+    public string DownloadMode { get; set; } = "ShikiLua";
     public string KeyFolderPath { get; set; } = string.Empty;
     public bool IsFabVisible { get; set; } = true;
     public bool IsCardRefreshVisible { get; set; } = true;
@@ -68,8 +68,8 @@ public class SettingsService : ISettingsService
             {
                 var json = File.ReadAllText(_settingsFilePath);
                 var settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
-                if (string.IsNullOrWhiteSpace(settings.DownloadMode))
-                    settings.DownloadMode = "DepotKey";
+                if (string.IsNullOrWhiteSpace(settings.DownloadMode) || settings.DownloadMode == "DepotKey")
+                    settings.DownloadMode = "ShikiLua";
                 // 更新检查地址固定内置，不依赖用户配置（历史配置里的旧值一律覆盖）
                 settings.UpdateCheckUrl = UpdateService.DefaultUpdateCheckUrl;
                 return settings;

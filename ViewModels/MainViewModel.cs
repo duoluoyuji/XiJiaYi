@@ -211,9 +211,10 @@ namespace SteamLuaManager.ViewModels;
 			: detectedPath ?? "未检测到Steam";
 		OpenSteamToolStatus = _steamPathService.DetectSteamToolType() switch
 		{
-			SteamToolType.OpenSteamTool => "使用 OpenSteamTool 内核",
-			SteamToolType.SteamTools => "检测到不适配的 SteamTools",
-			_ => "未安装 OpenSteamTool"
+			SteamToolType.KeySteamTool => "KeySteamTool (LTS) 内核已就绪",
+			SteamToolType.OpenSteamTool => "旧版 OpenSteamTool (9/9后失效，请升级)",
+			SteamToolType.SteamTools => "检测到第三方工具",
+			_ => "内核未就绪 (请点击「内核管理」一键部署)"
 		};
 		await RefreshGamesAsync();
 		if (IsAutoRefreshEnabled)
@@ -522,36 +523,6 @@ namespace SteamLuaManager.ViewModels;
 		{
 			await ShowModernDialogAsync("启动失败", $"启动游戏失败: {ex.Message}");
 			LogService.Error("主页", $"480联机启动失败: {ex.Message}");
-		}
-	}
-
-	/// <summary>一键修复下载（从公共清单镜像库下载该游戏的 .manifest 文件并写入 depotcache，彻底解决 Steam 提示无网络连接无法下载的问题）。</summary>
-	public async Task FixDownloadManifestAsync(GameInfo game)
-	{
-		if (game == null) return;
-		StatusMessage = $"正在检索《{game.GameName}》({game.AppId}) 的清单文件...";
-		try
-		{
-			var progress = new Progress<string>(msg => StatusMessage = msg);
-			var (success, count, message) = await _steamManifestService.EnsureManifestsCachedAsync(game.AppId, progress);
-			if (success)
-			{
-				await ShowModernDialogAsync("清单补全成功",
-					$"已成功为《{game.GameName}》同步 {count} 个清单文件至 depotcache！\n\n" +
-					"现在您可以直接在 Steam 客户端中点击安装/开始下载。\n\n" +
-					"（提示：如果 Steam 界面仍残留“无网络连接”，请在 Steam 设置 -> 下载 中点击一次「清除下载缓存」后重启 Steam 即可。）");
-				StatusMessage = $"已成功补全《{game.GameName}》的清单";
-			}
-			else
-			{
-				await ShowModernDialogAsync("清单同步提示", message);
-				StatusMessage = message;
-			}
-		}
-		catch (Exception ex)
-		{
-			LogService.Error("清单修复", $"补全清单异常: {ex.Message}");
-			await ShowModernDialogAsync("错误", $"补全清单失败: {ex.Message}");
 		}
 	}
 

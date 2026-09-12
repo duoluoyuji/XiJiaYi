@@ -46,12 +46,13 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\SvcMonitor.zip" />
-    <EmbeddedResource Include="Resources\OpenSteamTool.zip" />
+    <EmbeddedResource Include="Resources\KeySteamTool.zip" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Data\ShikiLua\depotkeys.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Data\ShikiLua\appaccesstokens.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Data\ShikiLua\names.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Target Name="BuildSvcMonitorForEmbed" BeforeTargets="BeforeBuild">

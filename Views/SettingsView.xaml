@@ -113,8 +113,8 @@
                             </StackPanel>
                         </ui:SettingsCard>
 
-                        <ui:SettingsCard Header="Lua 清单路径" Margin="0,0,0,8"
-                                         Description="OpenSteamTool 内核所读取的 Lua 清单文件所在路径"
+                        <ui:SettingsCard Header="插件/清单路径" Margin="0,0,0,8"
+                                         Description="KeySteamTool 内核所读取的脚本与清单目录（config\stplug-in）"
                                          ui:ControlHelper.CornerRadius="8">
                             <ui:SettingsCard.Background>
                                 <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.45"/>
@@ -289,27 +289,34 @@
                                 <ComboBox.Background>
                                     <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.45"/>
                                 </ComboBox.Background>
-                                <ComboBoxItem Content="本地缓存仓库 V1" Tag="DepotKey"/>
-                                <ComboBoxItem Content="本地缓存仓库 V2" Tag="DepotKey2"/>
-                                <ComboBoxItem Content="ShikiLua 内置库" Tag="ShikiLua"/>
+                                <ComboBoxItem Content="ShikiLua 内置库 (KeySteam 全量数据)" Tag="ShikiLua"/>
+                                <ComboBoxItem Content="本地缓存仓库 V2 (ManifestHub 镜像)" Tag="DepotKey2"/>
                                 <ComboBoxItem Content="远程清单仓库" Tag="Remote"/>
                             </ComboBox>
                         </ui:SettingsCard>
 
-                        <ui:SettingsCard Header="内核更新源" Margin="0,0,0,8"
-                                         Description="选择「内核管理 → 更新内核」时从哪个仓库获取（作者分支版为视频配套 ost）"
+                        <ui:SettingsCard Header="底层内核 (KeySteamTool LTS)" Margin="0,0,0,8"
+                                         Description="搭载 KeySteam 核心技术栈，全面兼容 9月9日 后的 Steam 更新"
                                          ui:ControlHelper.CornerRadius="8">
                             <ui:SettingsCard.Background>
                                 <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.45"/>
                             </ui:SettingsCard.Background>
-                            <ComboBox ItemsSource="{Binding KernelSourceOptions}"
-                                      SelectedValue="{Binding KernelSource}"
-                                      SelectedValuePath="Value" DisplayMemberPath="Display"
-                                      HorizontalAlignment="Left" Padding="8,4" MinWidth="220">
-                                <ComboBox.Background>
-                                    <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.45"/>
-                                </ComboBox.Background>
-                            </ComboBox>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding KernelStatusText}" VerticalAlignment="Center" Margin="0,0,12,0"
+                                           FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                <Button Content="一键部署" Command="{Binding DeployKernelCommand}"
+                                        Padding="12,6" Margin="4,0">
+                                    <Button.Background>
+                                        <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.45"/>
+                                    </Button.Background>
+                                </Button>
+                                <Button Content="卸载内核" Command="{Binding UninstallKernelCommand}"
+                                        Padding="12,6" Margin="4,0">
+                                    <Button.Background>
+                                        <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.45"/>
+                                    </Button.Background>
+                                </Button>
+                            </StackPanel>
                         </ui:SettingsCard>
 
                         <ui:SettingsCard Header="封面CDN节点" Margin="0,0,0,8"
