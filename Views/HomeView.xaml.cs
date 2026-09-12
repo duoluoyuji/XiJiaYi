@@ -83,8 +83,6 @@ public partial class HomeView : UserControl
                 CardMenuItem.Separator(),
                 new CardMenuItem("onlinefix", "在线联机启动"),
                 CardMenuItem.Separator(),
-                new CardMenuItem("fixmanifest", "⚡ 修复下载 (补全清单)"),
-                CardMenuItem.Separator(),
                 new CardMenuItem("denuvo", "D加密授权", HasSubmenu: true),
                 CardMenuItem.Separator(),
                 new CardMenuItem("edit", "编辑 Lua"),
@@ -191,9 +189,6 @@ public partial class HomeView : UserControl
                 break;
             case "onlinefix":
                 await _activeMenuViewModel.LaunchGameOnlineFixAsync(_activeMenuGame);
-                break;
-            case "fixmanifest":
-                await _activeMenuViewModel.FixDownloadManifestAsync(_activeMenuGame);
                 break;
             case "edit":
                 _activeMenuViewModel.EditGameCommand.Execute(_activeMenuGame);

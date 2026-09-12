@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -22,7 +22,11 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     private readonly ISettingsService _settingsService;
     private readonly ISteamApiService _steamApiService;
     private readonly IUpdateService _updateService;
+    private readonly IOpenSteamToolService _openSteamToolService;
     private AppSettings _settings;
+
+    [ObservableProperty]
+    private string _kernelStatusText = "检测中...";
 
     [ObservableProperty]
     private string _steamPath = string.Empty;
@@ -108,13 +112,15 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     public ObservableCollection<SpeedTestItem> SpeedTestResults { get; } = new();
 
     public SettingsViewModel(ISteamPathService steamPathService, ILuaFileManager luaFileManager,
-        ISettingsService settingsService, ISteamApiService steamApiService, IUpdateService updateService)
+        ISettingsService settingsService, ISteamApiService steamApiService, IUpdateService updateService,
+        IOpenSteamToolService openSteamToolService)
     {
         _steamPathService = steamPathService;
         _luaFileManager = luaFileManager;
         _settingsService = settingsService;
         _steamApiService = steamApiService;
         _updateService = updateService;
+        _openSteamToolService = openSteamToolService;
         _settings = settingsService.Load();
 
         SteamPath = _settings.SteamPath;
@@ -146,7 +152,60 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         }
 
         LuaFolderPath = steamPathService.GetLuaFolder() ?? "未配置";
+        RefreshKernelStatus();
+    }
 
+    public void RefreshKernelStatus()
+    {
+        var type = _steamPathService.DetectSteamToolType();
+        KernelStatusText = type switch
+        {
+            SteamToolType.KeySteamTool => "KeySteamTool (LTS) 已就绪",
+            SteamToolType.OpenSteamTool => "旧版 OpenSteamTool (9/9后已失效)",
+            SteamToolType.SteamTools => "检测到第三方内核",
+            _ => "未部署"
+        };
+    }
+
+    [RelayCommand]
+    private async Task DeployKernelAsync()
+    {
+        try
+        {
+            StatusMessage = "正在部署 KeySteamTool (LTS) 内核...";
+            await _openSteamToolService.InstallEmbeddedAsync();
+            RefreshKernelStatus();
+            MainViewModel.RequestRefresh();
+            StatusMessage = "KeySteamTool (LTS) 内核已部署就绪！重启 Steam 后生效。";
+            LogService.Info("设置", "已一键部署 KeySteamTool 内核");
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"部署失败: {ex.Message}";
+            LogService.Error("设置", $"部署内核失败: {ex}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task UninstallKernelAsync()
+    {
+        try
+        {
+            var confirm = await ShowConfirmAsync("确认卸载", "确定要卸载当前内核吗？这将安全退出 Steam 并清除内核动态库文件（不删除游戏和脚本）。", "卸载", "取消");
+            if (!confirm) return;
+
+            StatusMessage = "正在卸载内核...";
+            await _openSteamToolService.UninstallAsync();
+            RefreshKernelStatus();
+            MainViewModel.RequestRefresh();
+            StatusMessage = "内核已成功卸载！";
+            LogService.Info("设置", "已卸载内核");
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"卸载失败: {ex.Message}";
+            LogService.Error("设置", $"卸载内核失败: {ex}");
+        }
     }
 
     private void OnCdnAutoSwitched(int newIndex)
@@ -781,7 +840,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     private int _selectedTabIndex;
 
     [ObservableProperty]
-    private string _downloadMode = "DepotKey";
+    private string _downloadMode = "ShikiLua";
 
     [ObservableProperty]
     private bool _isShowTrainerSections = true;
@@ -829,10 +888,9 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         _settingsService.Save(_settings);
         StatusMessage = value switch
         {
-            "Remote" => "已切换为远程清单仓库",
-            "DepotKey" => "已切换为本地缓存仓库 V1",
+            "ShikiLua" => "已切换为 ShikiLua 内置库 (KeySteam 全量数据)",
             "DepotKey2" => "已切换为本地缓存仓库 V2",
-            "ShikiLua" => "已切换为 ShikiLua 内置库",
+            "Remote" => "已切换为远程清单仓库",
             _ => ""
         };
         if (!string.IsNullOrEmpty(StatusMessage))

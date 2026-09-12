@@ -1,8 +1,9 @@
-﻿namespace SteamLuaManager.Services;
+namespace SteamLuaManager.Services;
 
 public enum SteamToolType
 {
     None,
+    KeySteamTool,
     OpenSteamTool,
     SteamTools
 }

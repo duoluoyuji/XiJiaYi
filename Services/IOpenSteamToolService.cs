@@ -27,24 +27,7 @@ public class OpenSteamToolService : IOpenSteamToolService
     private readonly ISettingsService _settingsService;
     private const string OfficialRepo = "OpenSteam001/OpenSteamTool";
     private const string ForkRepo = "pvzcxw/OpenSteamTool";
-    private static readonly string[] RequiredDlls = ["dwmapi.dll", "xinput1_4.dll", "OpenSteamTool.dll"];
-    private static readonly Dictionary<string, string> EmbeddedVersionMap = new()
-    {
-        ["115ec256c7c5b066926015a24120cf6e7d9e5a7a5b87441817c2de11cc3f9fec"] = "v1.2.0",
-        ["494bc762351b4dc80ca2f36cc005fc89b976f24e6e77c12945229e3e05502e93"] = "v1.3.0",
-        ["8d4cb44bc57565e8183b9dab72eda873305c4257e080e29d57bbfda4cc755585"] = "v1.3.1",
-        ["6daeef8b0a085c22ca43a6efeceee1f8547c3044573c394ec7cd4945fba13430"] = "v1.3.2",
-        ["a1c4ffc819d96d9c397d132cb718aa7d7d44651375845e4bb9258499e643857d"] = "v1.4.0",
-        ["550f9edfede4a4403f7aefdd5c4a40fdd92be22135443857fd997b415d7ced1e"] = "v1.4.1",
-        ["962f5c7700a0ddde46cd419763ed15f95baf5a4a93525559f7bb6453aa1b1aac"] = "v1.4.2",
-        ["d578da0170d18cd8f7cdee36a617a80147bddc8945701e3d5d1f11315d7e36fd"] = "v1.4.3",
-        ["9113dce46b7a807e30abc018ee8469f188c51e2d277279c2f15427efc2f52226"] = "v1.4.4",
-        ["5ec8351d5949c10c97210759efb5d618741d8414d67ff650e328d036e352c10c"] = "v1.4.5",
-        ["cd7266e06d7416d3b02335386c54b909df68e2e0605941f70bb21ed392ee639f"] = "v1.4.6",
-        ["9a2c459ad5124eeb48e4a1c7ac9808e5fad6eda54f7df8ad4b2e4465818f50f7"] = "v1.4.6-fix",
-        ["09d26118c7cf796cf37562c4cb965d1b213f5866c02ca04fe0fafc4c2f22b0bc"] = "v1.4.7",
-    };
-    private static readonly byte[] VersionMarker = [0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00];
+    private static readonly string[] RequiredDlls = ["dwmapi.dll", "KeySteamTool.dll", "cloud_redirect.dll", "xinput1_4.dll"];
 
     public OpenSteamToolService(ISteamPathService steamPathService, IHttpClientProvider httpClientProvider, ISettingsService settingsService)
     {
@@ -53,19 +36,20 @@ public class OpenSteamToolService : IOpenSteamToolService
         _settingsService = settingsService;
     }
 
-    /// <summary>当前内核更新源（Official 官方版 / Fork 作者分支版）。</summary>
-    private string CurrentRepo =>
-        string.Equals(_settingsService.Load().KernelSource, "Official", StringComparison.OrdinalIgnoreCase)
-            ? OfficialRepo
-            : ForkRepo;
-
     private static void ConfigureHeaders(HttpClient client)
     {
         if (!client.DefaultRequestHeaders.UserAgent.Any())
             client.DefaultRequestHeaders.UserAgent.ParseAdd("XiJiaYi/1.0");
     }
 
-    public bool IsInstalled => _steamPathService.DetectSteamToolType() == SteamToolType.OpenSteamTool;
+    public bool IsInstalled
+    {
+        get
+        {
+            var type = _steamPathService.DetectSteamToolType();
+            return type == SteamToolType.KeySteamTool || type == SteamToolType.OpenSteamTool;
+        }
+    }
 
     public string? GetSteamPath()
     {
@@ -77,71 +61,31 @@ public class OpenSteamToolService : IOpenSteamToolService
     {
         var steamPath = GetSteamPath();
         if (steamPath == null) return Task.FromResult<string?>(null);
-        var dllPath = Path.Combine(steamPath, "OpenSteamTool.dll");
-        if (!File.Exists(dllPath)) return Task.FromResult<string?>(null);
 
-        // 1. 嵌入 SHA256 字典（覆盖 pre-1.4.8 所有官方构建）
-        var localHash = ComputeSha256(dllPath);
-        if (EmbeddedVersionMap.TryGetValue(localHash, out var embeddedVer))
-            return Task.FromResult<string?>(embeddedVer);
-
-        // 2. 二进制标记位解析（覆盖 1.4.8+ 版本）
-        try
+        var kstPath = Path.Combine(steamPath, "KeySteamTool.dll");
+        if (File.Exists(kstPath))
         {
-            var bytes = File.ReadAllBytes(dllPath);
-            for (int i = 0; i <= bytes.Length - 12; i++)
-            {
-                var found = true;
-                for (int j = 0; j < VersionMarker.Length; j++)
-                {
-                    if (bytes[i + j] != VersionMarker[j]) { found = false; break; }
-                }
-                if (!found) continue;
-
-                var start = i + VersionMarker.Length;
-                var end = start;
-                while (end < bytes.Length && bytes[end] != 0) end++;
-                if (end > start)
-                {
-                    var ver = Encoding.ASCII.GetString(bytes, start, end - start);
-                    if (Regex.IsMatch(ver, @"^v?\d+\.\d+\.\d+"))
-                        return Task.FromResult<string?>(ver);
-                }
-            }
+            return Task.FromResult<string?>("KeySteamTool v2.99 (LTS 内核)");
         }
-        catch (Exception ex) { LogService.Warn("内核", $"读取本地版本失败: {ex.Message}"); }
+
+        var dwmPath = Path.Combine(steamPath, "dwmapi.dll");
+        if (File.Exists(dwmPath) && Directory.Exists(Path.Combine(steamPath, "config", "stplug-in")))
+        {
+            return Task.FromResult<string?>("KeySteamTool (LTS 内核)");
+        }
+
+        var ostPath = Path.Combine(steamPath, "OpenSteamTool.dll");
+        if (File.Exists(ostPath))
+        {
+            return Task.FromResult<string?>("旧版 OpenSteamTool (已废弃)");
+        }
 
         return Task.FromResult<string?>(null);
     }
 
-    public async Task<(string version, string downloadUrl, string releaseUrl)> GetRemoteInfoAsync()
+    public Task<(string version, string downloadUrl, string releaseUrl)> GetRemoteInfoAsync()
     {
-        var repo = CurrentRepo;
-        var apiUrl = $"https://api.github.com/repos/{repo}/releases/latest";
-        var json = await _httpClientProvider.SendWithProxyRetryAsync(
-            "open-steam-tool",
-            TimeSpan.FromSeconds(120),
-            client => client.GetStringAsync(apiUrl),
-            ConfigureHeaders);
-        using var doc = JsonDocument.Parse(json);
-        var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "0.0.0";
-        var releaseUrl = doc.RootElement.TryGetProperty("html_url", out var htmlUrl)
-            ? htmlUrl.GetString() ?? ""
-            : $"https://github.com/{repo}/releases/tag/{tag}";
-        var downloadUrl = "";
-        if (doc.RootElement.TryGetProperty("assets", out var assets))
-        {
-            foreach (var asset in assets.EnumerateArray())
-            {
-                var name = asset.GetProperty("name").GetString() ?? "";
-                if (name.Contains("-Release") && name.EndsWith(".zip"))
-                {
-                    downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
-                    break;
-                }
-            }
-        }
-        return (tag, downloadUrl, releaseUrl);
+        return Task.FromResult(("v2.99-LTS", "", "https://github.com/"));
     }
 
     public Task InstallEmbeddedAsync(IProgress<string>? status = null)
@@ -150,12 +94,12 @@ public class OpenSteamToolService : IOpenSteamToolService
         status?.Report("正在安全退出 Steam 进程...");
         TryKillSteamProcesses();
 
-        CleanConflictFiles(steamPath);
+        CleanLegacyConflictFiles(steamPath);
 
-        status?.Report("正在从内置离线包解压并安装 OpenSteamTool...");
-        using var stream = typeof(OpenSteamToolService).Assembly.GetManifestResourceStream("SteamLuaManager.Resources.OpenSteamTool.zip");
+        status?.Report("正在解压并安装 KeySteamTool (LTS) 内核文件...");
+        using var stream = typeof(OpenSteamToolService).Assembly.GetManifestResourceStream("SteamLuaManager.Resources.KeySteamTool.zip");
         if (stream == null)
-            throw new InvalidOperationException("未找到内置的 OpenSteamTool 安装包资源");
+            throw new InvalidOperationException("未找到内置的 KeySteamTool 内核离线包资源");
 
         using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
         var extracted = 0;
@@ -163,7 +107,6 @@ public class OpenSteamToolService : IOpenSteamToolService
         {
             var fileName = Path.GetFileName(entry.Name);
             if (string.IsNullOrEmpty(fileName)) continue;
-            if (!RequiredDlls.Contains(fileName, StringComparer.OrdinalIgnoreCase)) continue;
 
             var targetPath = Path.Combine(steamPath, fileName);
             entry.ExtractToFile(targetPath, overwrite: true);
@@ -171,141 +114,77 @@ public class OpenSteamToolService : IOpenSteamToolService
         }
 
         if (extracted == 0)
-            throw new InvalidOperationException("内置安装包中未找到 OpenSteamTool DLL 文件");
+            throw new InvalidOperationException("内核安装包中未找到有效的内核文件");
 
-        status?.Report("安装完成");
+        // 确保插件目录与清单缓存目录就绪
+        var stPluginDir = Path.Combine(steamPath, "config", "stplug-in");
+        if (!Directory.Exists(stPluginDir))
+        {
+            Directory.CreateDirectory(stPluginDir);
+        }
+
+        var depotCacheDir = Path.Combine(steamPath, "depotcache");
+        if (!Directory.Exists(depotCacheDir))
+        {
+            Directory.CreateDirectory(depotCacheDir);
+        }
+
+        var configDepotCacheDir = Path.Combine(steamPath, "config", "depotcache");
+        if (!Directory.Exists(configDepotCacheDir))
+        {
+            Directory.CreateDirectory(configDepotCacheDir);
+        }
+
+        status?.Report("KeySteamTool (LTS) 内核安装就绪");
+        LogService.Info("内核", "KeySteamTool (LTS) 内核已成功部署至 Steam 根目录及插件目录。");
         return Task.CompletedTask;
     }
 
     public async Task InstallAsync(string downloadUrl, IProgress<string>? status = null, IProgress<int>? downloadProgress = null, CancellationToken ct = default)
     {
-        ct.ThrowIfCancellationRequested();
-        var steamPath = GetSteamPath() ?? throw new InvalidOperationException("无法检测 Steam 路径");
-
-        // 1. 退出 Steam 防止 DLL 占用锁定
-        status?.Report("正在安全退出 Steam 进程...");
-        TryKillSteamProcesses();
-
-        // 2. 清除冲突文件
-        CleanConflictFiles(steamPath);
-
-        status?.Report("正在下载 OpenSteamTool...");
-
-        var tempZip = Path.Combine(Path.GetTempPath(), $"OpenSteamTool_{Guid.NewGuid():N}.zip");
-        var downloadOk = false;
-        try
-        {
-            try
-            {
-                using var response = await _httpClientProvider.SendWithProxyRetryAsync(
-                           "open-steam-tool",
-                           TimeSpan.FromSeconds(30),
-                           client => client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead),
-                           ConfigureHeaders);
-
-                response.EnsureSuccessStatusCode();
-                var totalBytes = response.Content.Headers.ContentLength ?? -1;
-
-                await using var httpStream = await response.Content.ReadAsStreamAsync();
-                await using var fileStream = File.Create(tempZip);
-
-                var buffer = new byte[81920];
-                long readBytes = 0;
-                int bytesRead;
-                while ((bytesRead = await httpStream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    await fileStream.WriteAsync(buffer, 0, bytesRead, ct);
-                    readBytes += bytesRead;
-                    if (totalBytes > 0 && downloadProgress != null)
-                    {
-                        var percent = (int)(readBytes * 100 / totalBytes);
-                        downloadProgress.Report(Math.Clamp(percent, 0, 100));
-                    }
-                }
-                downloadOk = true;
-            }
-            catch (Exception ex)
-            {
-                LogService.Warn("内核安装", $"远程下载失败 ({ex.Message})，将自动转为内置离线安装包");
-            }
-
-            ct.ThrowIfCancellationRequested();
-
-            if (downloadOk && File.Exists(tempZip) && new FileInfo(tempZip).Length > 0)
-            {
-                status?.Report("正在解压并安装 DLL...");
-                using var archive = ZipFile.OpenRead(tempZip);
-                var extracted = 0;
-                foreach (var entry in archive.Entries)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    var fileName = Path.GetFileName(entry.Name);
-                    if (string.IsNullOrEmpty(fileName)) continue;
-                    if (!RequiredDlls.Contains(fileName, StringComparer.OrdinalIgnoreCase)) continue;
-
-                    var targetPath = Path.Combine(steamPath, fileName);
-                    entry.ExtractToFile(targetPath, overwrite: true);
-                    extracted++;
-                }
-
-                if (extracted > 0)
-                {
-                    status?.Report("安装完成");
-                    return;
-                }
-            }
-
-            // 自动回退到内置安装包
-            await InstallEmbeddedAsync(status);
-        }
-        finally
-        {
-            try { File.Delete(tempZip); } catch { }
-        }
+        await InstallEmbeddedAsync(status);
     }
 
     public Task UninstallAsync()
     {
         var steamPath = GetSteamPath() ?? throw new InvalidOperationException("无法检测 Steam 路径");
         TryKillSteamProcesses();
-        CleanConflictFiles(steamPath);
+        CleanLegacyConflictFiles(steamPath);
 
-        var removed = 0;
         foreach (var dll in RequiredDlls)
         {
             var path = Path.Combine(steamPath, dll);
             if (File.Exists(path))
             {
-                try
-                {
-                    File.Delete(path);
-                    removed++;
-                }
-                catch (Exception ex)
-                {
-                    LogService.Warn("内核卸载", $"删除 {dll} 失败: {ex.Message}");
-                }
+                try { File.Delete(path); }
+                catch (Exception ex) { LogService.Warn("内核卸载", $"删除 {dll} 失败: {ex.Message}"); }
             }
         }
+
+        var cfgPath = Path.Combine(steamPath, "steam.cfg");
+        if (File.Exists(cfgPath))
+        {
+            try { File.Delete(cfgPath); } catch { }
+        }
+
+        LogService.Info("内核", "KeySteamTool 内核已成功卸载。");
         return Task.CompletedTask;
     }
 
-    private static void CleanConflictFiles(string steamPath)
+    /// <summary>
+    /// 清除 9月9日之前的旧版废弃文件（如 OpenSteamTool.dll、toml 配置文件等）。
+    /// 注意：严禁删除 steam.cfg 与 config\stplug-in 目录。
+    /// </summary>
+    private static void CleanLegacyConflictFiles(string steamPath)
     {
-        var conflictFiles = new[] { "steam.cfg", "hid.dll" };
-        foreach (var file in conflictFiles)
+        var obsoleteFiles = new[] { "OpenSteamTool.dll", "opensteamtool.toml", "opensteamtool.example.toml", "hid.dll" };
+        foreach (var file in obsoleteFiles)
         {
             var p = Path.Combine(steamPath, file);
             if (File.Exists(p))
             {
                 try { File.Delete(p); } catch { }
             }
-        }
-        var stPluginDir = Path.Combine(steamPath, "config", "stplug-in");
-        if (Directory.Exists(stPluginDir))
-        {
-            try { Directory.Delete(stPluginDir, recursive: true); } catch { }
         }
     }
 
@@ -323,15 +202,5 @@ public class OpenSteamToolService : IOpenSteamToolService
             }
         }
         catch { }
-    }
-
-    // ========== 辅助方法 ==========
-
-    private static string ComputeSha256(string filePath)
-    {
-        using var sha256 = SHA256.Create();
-        using var stream = File.OpenRead(filePath);
-        var hash = sha256.ComputeHash(stream);
-        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.IO;
+using System.IO;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using SteamLuaManager.Models;
 
@@ -16,12 +17,58 @@ public class LuaFileManager : ILuaFileManager, IDisposable
     private static readonly Regex AddTokenRegex = new(@"addtoken\((\d+),\s*""([^""]+)""\)", RegexOptions.IgnoreCase);
     private static readonly Regex ManifestPinRegex = new(@"^\s*setManifestid\((\d+),\s*""(\d+)""(?:\s*,\s*(\d+))?\)", RegexOptions.IgnoreCase | RegexOptions.Multiline);
     private static readonly Regex ManifestPinCommentedRegex = new(@"^\s*--\s*setManifestid\((\d+),\s*""(\d+)""(?:\s*,\s*(\d+))?\)", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+    private static readonly Regex AppNameRegex = new(@"--\s*app_name:\s*(.+)", RegexOptions.IgnoreCase);
+
+    private static Dictionary<string, string>? _cachedNames;
+    private static readonly object _namesLock = new();
 
     public event EventHandler? FilesChanged;
 
     public LuaFileManager(ISteamPathService steamPathService)
     {
         _steamPathService = steamPathService;
+    }
+
+    public static string? TryGetLocalGameName(int appId)
+    {
+        if (_cachedNames == null)
+        {
+            lock (_namesLock)
+            {
+                if (_cachedNames == null)
+                {
+                    try
+                    {
+                        var namesFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "ShikiLua", "names.json");
+                        if (File.Exists(namesFile))
+                        {
+                            var json = File.ReadAllText(namesFile);
+                            _cachedNames = JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+                        }
+                        else
+                        {
+                            _cachedNames = new();
+                        }
+                    }
+                    catch
+                    {
+                        _cachedNames = new();
+                    }
+                }
+            }
+        }
+        return _cachedNames.TryGetValue(appId.ToString(), out var name) ? name : null;
+    }
+
+    private static List<string> GetScriptFiles(string folder)
+    {
+        if (!Directory.Exists(folder)) return new List<string>();
+        var files = Directory.GetFiles(folder, "*.ks")
+            .Concat(Directory.GetFiles(folder, "*.lua"))
+            .GroupBy(Path.GetFileNameWithoutExtension, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(f => f.EndsWith(".ks", StringComparison.OrdinalIgnoreCase)).First())
+            .ToList();
+        return files;
     }
 
     public async Task<List<GameInfo>> ScanLuaFilesAsync()
@@ -33,8 +80,8 @@ public class LuaFileManager : ILuaFileManager, IDisposable
             if (string.IsNullOrEmpty(luaFolder) || !Directory.Exists(luaFolder))
                 return result;
 
-            var luaFiles = Directory.GetFiles(luaFolder, "*.lua");
-            foreach (var file in luaFiles)
+            var scriptFiles = GetScriptFiles(luaFolder);
+            foreach (var file in scriptFiles)
             {
                 var fileName = Path.GetFileNameWithoutExtension(file);
                 if (int.TryParse(fileName, out var appId))
@@ -54,7 +101,7 @@ public class LuaFileManager : ILuaFileManager, IDisposable
             var disableFolder = Path.Combine(luaFolder, "Disable");
             if (Directory.Exists(disableFolder))
             {
-                var disabledFiles = Directory.GetFiles(disableFolder, "*.lua");
+                var disabledFiles = GetScriptFiles(disableFolder);
                 foreach (var file in disabledFiles)
                 {
                     var fileName = Path.GetFileNameWithoutExtension(file);
@@ -86,8 +133,10 @@ public class LuaFileManager : ILuaFileManager, IDisposable
             var luaFolder = _steamPathService.GetLuaFolder();
             if (string.IsNullOrEmpty(luaFolder)) return null;
 
-            var filePath = Path.Combine(luaFolder, $"{appId}.lua");
-            if (!File.Exists(filePath)) return null;
+            var ksPath = Path.Combine(luaFolder, $"{appId}.ks");
+            var luaPath = Path.Combine(luaFolder, $"{appId}.lua");
+            var filePath = File.Exists(ksPath) ? ksPath : (File.Exists(luaPath) ? luaPath : null);
+            if (filePath == null) return null;
 
             var game = new GameInfo
             {
@@ -106,6 +155,20 @@ public class LuaFileManager : ILuaFileManager, IDisposable
 
         var content = File.ReadAllText(game.LuaFilePath);
         game.Depots.Clear();
+
+        // 尝试从文件注释读取游戏名（KeySteam 生成的 -- app_name: xxx）
+        var nameMatch = AppNameRegex.Match(content);
+        if (nameMatch.Success)
+        {
+            game.GameName = nameMatch.Groups[1].Value.Trim();
+        }
+        // 如果文件未带名字，从本地 8.6万+ 游戏字典快速反查
+        if (string.IsNullOrWhiteSpace(game.GameName))
+        {
+            var localName = TryGetLocalGameName(game.AppId);
+            if (!string.IsNullOrEmpty(localName))
+                game.GameName = localName;
+        }
 
         // Parse addtoken
         var tokenMatch = AddTokenRegex.Match(content);
@@ -175,13 +238,23 @@ public class LuaFileManager : ILuaFileManager, IDisposable
         game.IsManifestPinned = activePins.Count > 0;
     }
 
+    private static string? FindScriptInFolder(string folder, int appId)
+    {
+        if (!Directory.Exists(folder)) return null;
+        var ks = Path.Combine(folder, $"{appId}.ks");
+        if (File.Exists(ks)) return ks;
+        var lua = Path.Combine(folder, $"{appId}.lua");
+        if (File.Exists(lua)) return lua;
+        return null;
+    }
+
     public async Task SetManifestPinAsync(int appId, bool pin, Dictionary<int, string>? manifestIds = null)
     {
         var luaFolder = _steamPathService.GetLuaFolder();
         if (string.IsNullOrEmpty(luaFolder)) return;
 
-        var filePath = Path.Combine(luaFolder, $"{appId}.lua");
-        if (!File.Exists(filePath)) return;
+        var filePath = FindScriptInFolder(luaFolder, appId);
+        if (filePath == null) return;
 
         var content = await File.ReadAllTextAsync(filePath);
         var lines = content.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
@@ -232,7 +305,6 @@ public class LuaFileManager : ILuaFileManager, IDisposable
             }
         }
 
-        // Not found - append after last addappid or addtoken line
         var insertAt = lines.Count - 1;
         for (var i = lines.Count - 1; i >= 0; i--)
         {
@@ -274,11 +346,13 @@ public class LuaFileManager : ILuaFileManager, IDisposable
         var luaFolder = _steamPathService.GetLuaFolder();
         if (string.IsNullOrEmpty(luaFolder)) return;
 
-        var filePath = Path.Combine(luaFolder, $"{appId}.lua");
-        if (File.Exists(filePath))
+        await Task.Run(() =>
         {
-            await Task.Run(() => File.Delete(filePath));
-        }
+            var ks = Path.Combine(luaFolder, $"{appId}.ks");
+            var lua = Path.Combine(luaFolder, $"{appId}.lua");
+            if (File.Exists(ks)) try { File.Delete(ks); } catch { }
+            if (File.Exists(lua)) try { File.Delete(lua); } catch { }
+        });
     }
 
     public async Task DisableGameAsync(int appId)
@@ -286,12 +360,13 @@ public class LuaFileManager : ILuaFileManager, IDisposable
         var luaFolder = _steamPathService.GetLuaFolder();
         if (string.IsNullOrEmpty(luaFolder)) return;
 
-        var srcPath = Path.Combine(luaFolder, $"{appId}.lua");
-        if (!File.Exists(srcPath)) return;
+        var srcPath = FindScriptInFolder(luaFolder, appId);
+        if (srcPath == null) return;
 
         var disableFolder = Path.Combine(luaFolder, "Disable");
         Directory.CreateDirectory(disableFolder);
-        var destPath = Path.Combine(disableFolder, $"{appId}.lua");
+        var ext = Path.GetExtension(srcPath);
+        var destPath = Path.Combine(disableFolder, $"{appId}{ext}");
 
         await Task.Run(() =>
         {
@@ -306,10 +381,11 @@ public class LuaFileManager : ILuaFileManager, IDisposable
         if (string.IsNullOrEmpty(luaFolder)) return;
 
         var disableFolder = Path.Combine(luaFolder, "Disable");
-        var srcPath = Path.Combine(disableFolder, $"{appId}.lua");
-        if (!File.Exists(srcPath)) return;
+        var srcPath = FindScriptInFolder(disableFolder, appId);
+        if (srcPath == null) return;
 
-        var destPath = Path.Combine(luaFolder, $"{appId}.lua");
+        var ext = Path.GetExtension(srcPath);
+        var destPath = Path.Combine(luaFolder, $"{appId}{ext}");
 
         await Task.Run(() =>
         {
@@ -325,7 +401,7 @@ public class LuaFileManager : ILuaFileManager, IDisposable
         var luaFolder = _steamPathService.GetLuaFolder();
         if (string.IsNullOrEmpty(luaFolder) || !Directory.Exists(luaFolder)) return;
 
-        _watcher = new FileSystemWatcher(luaFolder, "*.lua")
+        _watcher = new FileSystemWatcher(luaFolder, "*.*")
         {
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime | NotifyFilters.LastWrite | NotifyFilters.Size
         };
@@ -350,6 +426,11 @@ public class LuaFileManager : ILuaFileManager, IDisposable
 
     private void OnFilesChanged(object sender, FileSystemEventArgs e)
     {
+        var ext = Path.GetExtension(e.FullPath);
+        if (!string.Equals(ext, ".ks", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(ext, ".lua", StringComparison.OrdinalIgnoreCase))
+            return;
+
         _debounceCts?.Cancel();
         _debounceCts = new CancellationTokenSource();
         var token = _debounceCts.Token;

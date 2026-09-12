@@ -694,29 +694,21 @@ public partial class MainWindow : Window
         if (_openSteamToolService.IsInstalled)
         {
             var confirmed = await ShowModernConfirmAsync(
-                "确认安装",
-                "OpenSteamTool 已安装，是否仍要重新安装？这将覆盖现有文件。",
-                "重新安装");
+                "确认部署",
+                "KeySteamTool (LTS) 内核已存在，是否重新部署覆盖？",
+                "重新部署");
             if (!confirmed) return;
         }
 
         try
         {
-            var (version, downloadUrl, _) = await _openSteamToolService.GetRemoteInfoAsync();
-            if (string.IsNullOrEmpty(downloadUrl))
-            {
-                await ShowModernDialogAsync("错误", "无法获取最新版本下载链接");
-                return;
-            }
-
-            ShowKernelOverlay("正在下载 OpenSteamTool...");
+            ShowKernelOverlay("正在部署 KeySteamTool (LTS) 内核...");
             _kernelCts = new CancellationTokenSource();
             try
             {
                 var status = new Progress<string>(msg => KernelOverlayStatus.Text = msg);
-                var progress = new Progress<int>(pct => UpdateKernelOverlayProgress(pct));
                 ShowKernelDownloadHint();
-                await _openSteamToolService.InstallAsync(downloadUrl, status, progress, _kernelCts.Token);
+                await _openSteamToolService.InstallEmbeddedAsync(status);
             }
             catch (OperationCanceledException)
             {
@@ -730,7 +722,7 @@ public partial class MainWindow : Window
                 HideKernelOverlay();
             }
 
-            await ShowModernDialogAsync("安装完成", $"OpenSteamTool {version} 安装成功！\n请重启 Steam 后生效。");
+            await ShowModernDialogAsync("部署完成", "KeySteamTool (LTS) 内核已成功安装并就绪！\n已全面兼容 9月9日 后的 Steam 更新。\n请启动或重启 Steam 后即可生效。");
             RefreshTitle();
         }
         catch (OperationCanceledException) { }
@@ -744,112 +736,24 @@ public partial class MainWindow : Window
     {
         if (!_openSteamToolService.IsInstalled)
         {
-            await ShowModernDialogAsync("提示", "未检测到 OpenSteamTool，请先安装。");
+            await ShowModernDialogAsync("提示", "未检测到内核，请点击「安装内核」进行一键部署。");
             return;
         }
 
         var localVersion = await _openSteamToolService.GetLocalVersionAsync() ?? "未知";
-        var localDisplay = localVersion;
-
-        (string version, string downloadUrl, string releaseUrl)? remote = null;
-        for (var attempt = 0; attempt < 3; attempt++)
+        if (localVersion.Contains("KeySteamTool"))
         {
-            try
-            {
-                var info = await _openSteamToolService.GetRemoteInfoAsync();
-                if (!string.IsNullOrEmpty(info.downloadUrl))
-                {
-                    remote = info;
-                    break;
-                }
-            }
-            catch (Exception ex)
-            {
-                LogService.Warn("内核", $"获取远程内核信息失败(第{attempt + 1}次): {ex.Message}");
-            }
-
-            if (attempt < 2)
-            {
-                var retry = await ShowModernConfirmAsync(
-                    "获取失败",
-                    $"无法从更新源获取内核版本信息（当前本地版本：{localDisplay}）。\n\n" +
-                    "可能是网络波动或 GitHub 服务不稳定，是否重试？",
-                    "重试");
-                if (!retry) return;
-            }
-        }
-
-        if (remote == null)
-        {
-            await ShowModernDialogAsync("错误", $"多次尝试后仍无法获取内核版本信息（本地版本：{localDisplay}）。\n\n请检查网络后重试。");
+            await ShowModernDialogAsync("无需更新", $"当前已是最新内核：{localVersion}\n内置 KeySteamTool 完整架构，已支持 9月9日 后的 Steam 更新。");
             return;
         }
 
-        var (remoteVersion, downloadUrl, releaseUrl) = remote.Value;
-        try
-        {
-            if (localVersion != "未知")
-            {
-                var localVer = Version.TryParse(localVersion, out var lv) ? lv : null;
-                var remoteVer = Version.TryParse(remoteVersion, out var rv) ? rv : null;
-                if (localVer != null && remoteVer != null && localVer >= remoteVer)
-                {
-                    await ShowModernDialogAsync("无需更新", $"当前已是最新版本。\n本地：{localVersion}\n仓库：{remoteVersion}");
-                    return;
-                }
-            }
+        var confirmed = await ShowModernConfirmAsync(
+            "内核升级",
+            $"检测到当前使用的是 {localVersion}（9月9日后已无法正常下载）。\n\n是否立即一键升级至 KeySteamTool (LTS) 最新内核？",
+            "立即升级");
+        if (!confirmed) return;
 
-            var updateDialog = new ContentDialog
-            {
-                Title = "更新可用",
-                Content = new TextBlock
-                {
-                    Text = $"发现新版本！\n\n当前版本：{localDisplay}\n最新版本：{remoteVersion}\n\n是否更新？",
-                    TextWrapping = TextWrapping.Wrap,
-                    MaxWidth = 420
-                },
-                PrimaryButtonText = "更新",
-                SecondaryButtonText = "跳转发布页",
-                CloseButtonText = "取消",
-                DefaultButton = ContentDialogButton.Primary
-            };
-            var dialogResult = await updateDialog.ShowAsync();
-            if (dialogResult == ContentDialogResult.Secondary)
-            {
-                Process.Start(new ProcessStartInfo(releaseUrl) { UseShellExecute = true });
-                return;
-            }
-            if (dialogResult != ContentDialogResult.Primary) return;
-
-            ShowKernelOverlay("正在下载 OpenSteamTool...");
-            _kernelCts = new CancellationTokenSource();
-            try
-            {
-                var status = new Progress<string>(msg => KernelOverlayStatus.Text = msg);
-                var progress = new Progress<int>(pct => UpdateKernelOverlayProgress(pct));
-                ShowKernelDownloadHint();
-                await _openSteamToolService.InstallAsync(downloadUrl, status, progress, _kernelCts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            finally
-            {
-                _kernelCts?.Cancel();
-                _kernelCts?.Dispose();
-                _kernelCts = null;
-                HideKernelOverlay();
-            }
-
-            await ShowModernDialogAsync("更新完成", $"已更新至 {remoteVersion}！\n请重启 Steam 后生效。");
-            RefreshTitle();
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            await ShowModernDialogAsync("错误", $"检查更新失败：{ex.Message}");
-        }
+        await InstallKernelAsync();
     }
 
     private async Task UninstallKernelAsync()
@@ -865,7 +769,7 @@ public partial class MainWindow : Window
         var promptTitle = isThirdParty ? "清理第三方内核残留" : "确认卸载内核";
         var promptMsg = isThirdParty
             ? "检测到第三方 SteamTools（闭源）残留文件与配置。\n是否立即彻底清除其残留？\n\n注意：将自动退出 Steam 进程以解除文件占用。"
-            : "确定要卸载 OpenSteamTool 内核吗？\n这将安全退出 Steam 并删除相关内核文件。";
+            : "确定要卸载 KeySteamTool 内核吗？\n这将安全退出 Steam 并删除相关内核文件（不影响游戏与脚本）。";
 
         var confirmed = await ShowModernConfirmAsync(promptTitle, promptMsg, "清理并卸载");
         if (!confirmed) return;
@@ -873,7 +777,7 @@ public partial class MainWindow : Window
         try
         {
             await _openSteamToolService.UninstallAsync();
-            await ShowModernDialogAsync("清理完成", "内核文件与冲突配置已彻底清除！\n重启 Steam 后生效。");
+            await ShowModernDialogAsync("清理完成", "内核文件与遗留冲突配置已彻底清除！\n重启 Steam 后生效。");
             RefreshTitle();
         }
         catch (Exception ex)

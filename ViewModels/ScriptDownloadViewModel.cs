@@ -22,7 +22,7 @@ public partial class ScriptDownloadViewModel : ObservableObject
     private readonly IHttpClientProvider _httpClientProvider;
     private readonly ISteamManifestService _manifestService;
     private readonly DispatcherTimer _modeRefreshTimer;
-    private string _currentDownloadMode = "DepotKey";
+    private string _currentDownloadMode = "ShikiLua";
 
     // 商店搜索的地区/语言组合（按优先级）：schinese 索引含中文本地化名称，english 兜底英文/外区
     private static readonly (string Cc, string Lang)[] StoreSearchLocales =
@@ -44,13 +44,12 @@ public partial class ScriptDownloadViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = "就绪";
 
-    public bool IsDepotKeyMode => _currentDownloadMode == "DepotKey";
-    public bool IsLocalCacheMode => _currentDownloadMode is "DepotKey" or "DepotKey2" or "ShikiLua";
+    public bool IsDepotKeyMode => _currentDownloadMode == "DepotKey2";
+    public bool IsLocalCacheMode => _currentDownloadMode is "ShikiLua" or "DepotKey2" or "DepotKey";
     public string CurrentDataSourceLabel => _currentDownloadMode switch
     {
-        "DepotKey" => "本地缓存仓库V1",
-        "DepotKey2" => "本地缓存仓库V2",
         "ShikiLua" => "ShikiLua内置库",
+        "DepotKey2" => "本地缓存仓库V2",
         _ => "远程清单仓库"
     };
 
@@ -394,28 +393,14 @@ public partial class ScriptDownloadViewModel : ObservableObject
             return;
         }
 
-        AddLog($"✅ Lua 配置文件已保存：{luaPath}");
+        AddLog($"✅ 脚本配置文件已保存：{Path.GetFileName(luaPath)}");
 
-        AddLog("⚡ 正在自动同步/补全游戏清单缓存 (depotcache)...");
-        try
+        if (_steamPathService.DetectSteamToolType() == SteamToolType.None)
         {
-            var (manifestOk, manifestCount, manifestMsg) = await _manifestService.EnsureManifestsCachedAsync(appId);
-            if (manifestOk)
-            {
-                AddLog($"✅ {manifestMsg}");
-            }
-            else
-            {
-                AddLog($"ℹ️ 清单提示：{manifestMsg}");
-            }
-        }
-        catch (Exception ex)
-        {
-            LogService.Warn("入库", $"自动补全清单失败: {ex.Message}");
-            AddLog($"⚠️ 清单补齐跳过：{ex.Message}");
+            AddLog("💡 提示：未检测到 KeySteamTool 内核，请在「设置 - 内核管理」中一键安装");
         }
 
-        AddLog($"🎉 入库成功！Lua 文件：{Path.GetFileName(luaPath)}");
+        AddLog($"🎉 入库成功！《{queryResult.AppName}》已添加至 Steam 插件目录");
         StatusMessage = $"入库成功：{queryResult.AppName}";
     }
 
