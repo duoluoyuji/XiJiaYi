@@ -211,11 +211,13 @@ namespace SteamLuaManager.ViewModels;
 			: detectedPath ?? "未检测到Steam";
 		OpenSteamToolStatus = _steamPathService.DetectSteamToolType() switch
 		{
-			SteamToolType.KeySteamTool => "KeySteamTool (LTS) 内核已就绪",
-			SteamToolType.OpenSteamTool => "旧版 OpenSteamTool (9/9后失效，请升级)",
+			SteamToolType.KeySteamTool => "运行核心驱动已就绪",
+			SteamToolType.OpenSteamTool => "旧版驱动 (已失效，请升级)",
 			SteamToolType.SteamTools => "检测到第三方工具",
-			_ => "内核未就绪 (请点击「内核管理」一键部署)"
+			_ => "驱动未就绪 (请在「设置」中一键部署)"
 		};
+		// 启动时自动执行 depotcache 与 config/depotcache 双向增量同步
+		_ = _steamManifestService.SyncDepotcacheAsync();
 		await RefreshGamesAsync();
 		if (IsAutoRefreshEnabled)
 			_luaFileManager.StartWatching();

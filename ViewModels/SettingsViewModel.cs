@@ -101,13 +101,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
 
     public List<CdnEndpoint> CdnEndpoints { get; } = CdnEndpoint.Defaults;
 
-    public record KernelSourceOption(string Display, string Value);
 
-    public List<KernelSourceOption> KernelSourceOptions { get; } = new()
-    {
-        new("作者分支版（pvzcxw，视频配套 ost）", "Fork"),
-        new("官方版（OpenSteam001）", "Official"),
-    };
 
     public ObservableCollection<SpeedTestItem> SpeedTestResults { get; } = new();
 
@@ -160,10 +154,10 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         var type = _steamPathService.DetectSteamToolType();
         KernelStatusText = type switch
         {
-            SteamToolType.KeySteamTool => "KeySteamTool (LTS) 已就绪",
-            SteamToolType.OpenSteamTool => "旧版 OpenSteamTool (9/9后已失效)",
-            SteamToolType.SteamTools => "检测到第三方内核",
-            _ => "未部署"
+            SteamToolType.KeySteamTool => "运行核心驱动已就绪",
+            SteamToolType.OpenSteamTool => "旧版驱动 (已失效)",
+            SteamToolType.SteamTools => "检测到第三方工具",
+            _ => "未安装"
         };
     }
 
@@ -172,12 +166,12 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     {
         try
         {
-            StatusMessage = "正在部署 KeySteamTool (LTS) 内核...";
+            StatusMessage = "正在部署运行核心驱动...";
             await _openSteamToolService.InstallEmbeddedAsync();
             RefreshKernelStatus();
             MainViewModel.RequestRefresh();
-            StatusMessage = "KeySteamTool (LTS) 内核已部署就绪！重启 Steam 后生效。";
-            LogService.Info("设置", "已一键部署 KeySteamTool 内核");
+            StatusMessage = "运行核心驱动已部署就绪！重启 Steam 后生效。";
+            LogService.Info("设置", "已一键部署运行核心驱动");
         }
         catch (Exception ex)
         {
@@ -330,13 +324,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         LogService.Info("设置", value ? "启动时自动检查更新已开启" : "启动时自动检查更新已关闭");
     }
 
-    partial void OnKernelSourceChanged(string value)
-    {
-        _settings.KernelSource = value;
-        _settingsService.Save(_settings);
-        StatusMessage = value == "Official" ? "内核更新源已切换为官方版（OpenSteam001）" : "内核更新源已切换为作者分支版（pvzcxw）";
-        LogService.Info("设置", StatusMessage);
-    }
+
 
     partial void OnCompatModeChanged(bool value)
     {
@@ -888,8 +876,8 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         _settingsService.Save(_settings);
         StatusMessage = value switch
         {
-            "ShikiLua" => "已切换为 ShikiLua 内置库 (KeySteam 全量数据)",
-            "DepotKey2" => "已切换为本地缓存仓库 V2",
+            "ShikiLua" => "已切换为内置离线高速库 (推荐)",
+            "DepotKey2" => "已切换为备用镜像库 (ManifestHub)",
             "Remote" => "已切换为远程清单仓库",
             _ => ""
         };

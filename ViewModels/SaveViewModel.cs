@@ -67,18 +67,6 @@ public partial class SaveViewModel : ObservableObject
     private bool _replaceIdsEnabled = true;
 
     [ObservableProperty]
-    private bool _isCloudRedirectDownloading;
-
-    [ObservableProperty]
-    private int _cloudRedirectDownloadProgress;
-
-    [ObservableProperty]
-    private string _cloudRedirectStatus = string.Empty;
-
-    [ObservableProperty]
-    private bool _isCloudRedirectReady;
-
-    [ObservableProperty]
     private ObservableCollection<string> _accounts = new();
 
     [ObservableProperty]
@@ -115,7 +103,6 @@ public partial class SaveViewModel : ObservableObject
         WebDavUrl = settings.WebDavUrl;
         WebDavUser = settings.WebDavUser;
         WebDavPassword = settings.WebDavPassword;
-        RefreshCloudRedirectState();
     }
 
     partial void OnSelectedSaveChanged(SaveGameEntry? value)
@@ -702,6 +689,7 @@ public partial class SaveViewModel : ObservableObject
         await ImportPerfectSaveCoreAsync(entry, folder);
     }
 
+
     private async Task ImportPerfectSaveCoreAsync(SaveGameEntry entry, string sourcePath)
     {
         var replaceDesc = ReplaceIdsEnabled && !string.IsNullOrWhiteSpace(OriginalSteamId)
@@ -753,131 +741,6 @@ public partial class SaveViewModel : ObservableObject
             : $"{entry.GameName} 完美存档 AppID {entry.AppId}";
         var url = "https://www.bing.com/search?q=" + Uri.EscapeDataString(keyword);
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-    }
-
-    // ============ Steam 原生云存档（CloudRedirect） ============
-
-    private string CloudRedirectDir => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "CloudRedirect");
-
-    private string CloudRedirectExePath => Path.Combine(CloudRedirectDir, "CloudRedirect.exe");
-
-    private string CloudRedirectDllPath => Path.Combine(CloudRedirectDir, "cloud_redirect.dll");
-
-    private const string CloudRedirectReleasesPage = "https://github.com/pvzcxw/cloudRedirect/releases";
-
-    /// <summary>作者分支最新版直链（含 Steam 创意工坊提供商；GitHub 会自动重定向到最新 Release 的对应文件）。</summary>
-    private const string CloudRedirectDownloadBase = "https://github.com/pvzcxw/cloudRedirect/releases/latest/download/";
-
-    public void RefreshCloudRedirectState()
-    {
-        IsCloudRedirectReady = File.Exists(CloudRedirectExePath);
-        CloudRedirectStatus = IsCloudRedirectReady
-            ? $"已下载作者分支版（含 Steam 创意工坊提供商）"
-            : "尚未下载，点击下方按钮从作者发布页获取";
-    }
-
-    [RelayCommand]
-    private void OpenCloudRedirectPage()
-    {
-        Process.Start(new ProcessStartInfo(CloudRedirectReleasesPage) { UseShellExecute = true });
-    }
-
-    [RelayCommand]
-    private async Task DownloadCloudRedirectAsync()
-    {
-        if (IsCloudRedirectDownloading) return;
-        IsCloudRedirectDownloading = true;
-        CloudRedirectDownloadProgress = 0;
-        try
-        {
-            Directory.CreateDirectory(CloudRedirectDir);
-            var files = new[]
-            {
-                "CloudRedirect.exe",
-                "cloud_redirect.dll",
-                "CloudRedirect.exe.sha256",
-                "cloud_redirect.dll.sha256"
-            };
-
-            using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("XiJiaYi/1.5");
-
-            for (var i = 0; i < files.Length; i++)
-            {
-                var file = files[i];
-                CloudRedirectStatus = $"正在下载 {file} ...";
-                var url = CloudRedirectDownloadBase + Uri.EscapeDataString(file);
-                var dest = Path.Combine(CloudRedirectDir, file);
-                var bytes = await client.GetByteArrayAsync(url);
-                await File.WriteAllBytesAsync(dest, bytes);
-                CloudRedirectDownloadProgress = (int)((i + 1) * 100.0 / files.Length);
-            }
-
-            CloudRedirectStatus = "正在校验文件完整性...";
-            var exeOk = await VerifySha256Async(CloudRedirectExePath, Path.Combine(CloudRedirectDir, "CloudRedirect.exe.sha256"));
-            var dllOk = await VerifySha256Async(CloudRedirectDllPath, Path.Combine(CloudRedirectDir, "cloud_redirect.dll.sha256"));
-            if (!exeOk || !dllOk)
-            {
-                CloudRedirectStatus = "校验失败：下载文件与官方哈希不一致，已删除，请重试";
-                LogService.Error("云存档", $"CloudRedirect 校验失败 exe={exeOk} dll={dllOk}");
-                try { File.Delete(CloudRedirectExePath); File.Delete(CloudRedirectDllPath); } catch { }
-                return;
-            }
-
-            RefreshCloudRedirectState();
-            CloudRedirectStatus = "下载完成，已通过官方哈希校验";
-            LogService.Info("云存档", "CloudRedirect 官方版本下载并校验完成");
-        }
-        catch (Exception ex)
-        {
-            CloudRedirectStatus = $"下载失败：{ex.Message}";
-            LogService.Error("云存档", $"CloudRedirect 下载失败: {ex}");
-        }
-        finally
-        {
-            IsCloudRedirectDownloading = false;
-        }
-    }
-
-    [RelayCommand]
-    private void LaunchCloudRedirect()
-    {
-        if (!File.Exists(CloudRedirectExePath))
-        {
-            CloudRedirectStatus = "请先下载 CloudRedirect";
-            _ = ShowDialogAsync("提示", "CloudRedirect 尚未下载，请先点击「下载官方 CloudRedirect」。");
-            return;
-        }
-        try
-        {
-            Process.Start(new ProcessStartInfo(CloudRedirectExePath) { UseShellExecute = true });
-            CloudRedirectStatus = "已启动 CloudRedirect，请在弹出的窗口中完成配置";
-            LogService.Info("云存档", "已启动 CloudRedirect");
-        }
-        catch (Exception ex)
-        {
-            CloudRedirectStatus = $"启动失败：{ex.Message}";
-            LogService.Error("云存档", $"CloudRedirect 启动失败: {ex}");
-        }
-    }
-
-    private static async Task<bool> VerifySha256Async(string filePath, string sha256Path)
-    {
-        try
-        {
-            if (!File.Exists(filePath) || !File.Exists(sha256Path)) return false;
-            var line = (await File.ReadAllTextAsync(sha256Path)).Trim();
-            var expected = line.Split(' ', '\t', StringSplitOptions.RemoveEmptyEntries)[0];
-            using var sha = SHA256.Create();
-            await using var fs = File.OpenRead(filePath);
-            var hash = Convert.ToHexString(sha.ComputeHash(fs)).ToLowerInvariant();
-            return string.Equals(hash, expected, StringComparison.OrdinalIgnoreCase);
-        }
-        catch (Exception ex)
-        {
-            LogService.Warn("云存档", $"校验 {filePath} 失败: {ex.Message}");
-            return false;
-        }
     }
 
     private SaveGameEntry? RequireSave()

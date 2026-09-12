@@ -100,8 +100,14 @@ public class SteamManifestService : ISteamManifestService
                 return (false, 0, "未检测到 Steam 安装路径，请先在「设置」中指定有效的 Steam 根目录。");
 
             var depotcacheDir = Path.Combine(steamPath, "depotcache");
+            var configDepotDir = Path.Combine(steamPath, "config", "depotcache");
             if (!Directory.Exists(depotcacheDir))
                 Directory.CreateDirectory(depotcacheDir);
+            if (!Directory.Exists(configDepotDir))
+                Directory.CreateDirectory(configDepotDir);
+
+            // 先执行一轮现有清单双向同步，避免遗漏
+            await SyncDepotcacheAsync(ct);
 
             progress?.Report($"正在检索 AppID {appId} 的可用清单文件列表...");
 
@@ -185,7 +191,24 @@ public class SteamManifestService : ISteamManifestService
                 ct.ThrowIfCancellationRequested();
 
                 var targetPath = Path.Combine(depotcacheDir, manifestName);
-                if (File.Exists(targetPath) && new FileInfo(targetPath).Length > 0)
+                var targetConfigPath = Path.Combine(configDepotDir, manifestName);
+
+                var existsInA = File.Exists(targetPath) && new FileInfo(targetPath).Length > 0;
+                var existsInB = File.Exists(targetConfigPath) && new FileInfo(targetConfigPath).Length > 0;
+
+                if (existsInA && !existsInB)
+                {
+                    try { File.Copy(targetPath, targetConfigPath, true); } catch { }
+                    existingCount++;
+                    continue;
+                }
+                if (!existsInA && existsInB)
+                {
+                    try { File.Copy(targetConfigPath, targetPath, true); } catch { }
+                    existingCount++;
+                    continue;
+                }
+                if (existsInA && existsInB)
                 {
                     existingCount++;
                     continue;
@@ -221,9 +244,10 @@ public class SteamManifestService : ISteamManifestService
                         if (bytes != null && bytes.Length > 0)
                         {
                             await File.WriteAllBytesAsync(targetPath, bytes, ct);
+                            await File.WriteAllBytesAsync(targetConfigPath, bytes, ct);
                             downloaded = true;
                             downloadedCount++;
-                            LogService.Info("清单同步", $"成功下载清单 {manifestName} ({bytes.Length} 字节) 到 depotcache");
+                            LogService.Info("清单同步", $"成功下载清单 {manifestName} ({bytes.Length} 字节) 并写入两处 depotcache");
                             break;
                         }
                     }
@@ -239,8 +263,10 @@ public class SteamManifestService : ISteamManifestService
                 }
             }
 
+            await SyncDepotcacheAsync(ct);
+
             var total = downloadedCount + existingCount;
-            return (true, total, $"成功同步 {total} 个清单文件（新增下载 {downloadedCount} 个，已存在 {existingCount} 个）至 depotcache！\n您现在可以在 Steam 客户端中点击安装/下载。");
+            return (true, total, $"成功同步 {total} 个清单文件（新增下载 {downloadedCount} 个，已就绪 {existingCount} 个）至 depotcache！\n您现在可以在 Steam 客户端中点击安装/下载。");
         }
         catch (OperationCanceledException)
         {
@@ -251,5 +277,74 @@ public class SteamManifestService : ISteamManifestService
             LogService.Error("清单同步", $"补齐清单发生异常: {ex.Message}");
             return (false, 0, $"补齐清单失败: {ex.Message}");
         }
+    }
+
+    public Task<(int syncedAtoB, int syncedBtoA)> SyncDepotcacheAsync(CancellationToken ct = default)
+    {
+        return Task.Run(() =>
+        {
+            var steamPath = _steamPathService.DetectSteamPath();
+            if (string.IsNullOrEmpty(steamPath) || !Directory.Exists(steamPath))
+                return (0, 0);
+
+            var dirA = Path.Combine(steamPath, "depotcache");
+            var dirB = Path.Combine(steamPath, "config", "depotcache");
+
+            if (!Directory.Exists(dirA) && !Directory.Exists(dirB))
+                return (0, 0);
+
+            if (!Directory.Exists(dirA)) Directory.CreateDirectory(dirA);
+            if (!Directory.Exists(dirB)) Directory.CreateDirectory(dirB);
+
+            int syncedAtoB = 0;
+            int syncedBtoA = 0;
+
+            // Sync A (depotcache) -> B (config/depotcache)
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(dirA, "*.manifest"))
+                {
+                    if (ct.IsCancellationRequested) break;
+                    var name = Path.GetFileName(file);
+                    var target = Path.Combine(dirB, name);
+                    if (!File.Exists(target) || new FileInfo(target).Length != new FileInfo(file).Length)
+                    {
+                        File.Copy(file, target, true);
+                        syncedAtoB++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Warn("清单同步", $"从 depotcache 同步到 config/depotcache 失败: {ex.Message}");
+            }
+
+            // Sync B (config/depotcache) -> A (depotcache)
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(dirB, "*.manifest"))
+                {
+                    if (ct.IsCancellationRequested) break;
+                    var name = Path.GetFileName(file);
+                    var target = Path.Combine(dirA, name);
+                    if (!File.Exists(target) || new FileInfo(target).Length != new FileInfo(file).Length)
+                    {
+                        File.Copy(file, target, true);
+                        syncedBtoA++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Warn("清单同步", $"从 config/depotcache 同步到 depotcache 失败: {ex.Message}");
+            }
+
+            if (syncedAtoB > 0 || syncedBtoA > 0)
+            {
+                LogService.Info("清单同步", $"已完成清单双向增量同步: depotcache->config 同步 {syncedAtoB} 个, config->depotcache 同步 {syncedBtoA} 个");
+            }
+
+            return (syncedAtoB, syncedBtoA);
+        }, ct);
     }
 }

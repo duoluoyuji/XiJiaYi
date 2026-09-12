@@ -65,19 +65,19 @@ public class OpenSteamToolService : IOpenSteamToolService
         var kstPath = Path.Combine(steamPath, "KeySteamTool.dll");
         if (File.Exists(kstPath))
         {
-            return Task.FromResult<string?>("KeySteamTool v2.99 (LTS 内核)");
+            return Task.FromResult<string?>("运行核心驱动 v2.99");
         }
 
         var dwmPath = Path.Combine(steamPath, "dwmapi.dll");
         if (File.Exists(dwmPath) && Directory.Exists(Path.Combine(steamPath, "config", "stplug-in")))
         {
-            return Task.FromResult<string?>("KeySteamTool (LTS 内核)");
+            return Task.FromResult<string?>("运行核心驱动 (LTS)");
         }
 
         var ostPath = Path.Combine(steamPath, "OpenSteamTool.dll");
         if (File.Exists(ostPath))
         {
-            return Task.FromResult<string?>("旧版 OpenSteamTool (已废弃)");
+            return Task.FromResult<string?>("旧版驱动 (已废弃)");
         }
 
         return Task.FromResult<string?>(null);
@@ -85,7 +85,7 @@ public class OpenSteamToolService : IOpenSteamToolService
 
     public Task<(string version, string downloadUrl, string releaseUrl)> GetRemoteInfoAsync()
     {
-        return Task.FromResult(("v2.99-LTS", "", "https://github.com/"));
+        return Task.FromResult(("v2.99", "", "https://github.com/"));
     }
 
     public Task InstallEmbeddedAsync(IProgress<string>? status = null)
@@ -96,10 +96,10 @@ public class OpenSteamToolService : IOpenSteamToolService
 
         CleanLegacyConflictFiles(steamPath);
 
-        status?.Report("正在解压并安装 KeySteamTool (LTS) 内核文件...");
+        status?.Report("正在解压并安装运行核心驱动文件...");
         using var stream = typeof(OpenSteamToolService).Assembly.GetManifestResourceStream("SteamLuaManager.Resources.KeySteamTool.zip");
         if (stream == null)
-            throw new InvalidOperationException("未找到内置的 KeySteamTool 内核离线包资源");
+            throw new InvalidOperationException("未找到内置的运行核心驱动离线包资源");
 
         using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
         var extracted = 0;
@@ -114,7 +114,7 @@ public class OpenSteamToolService : IOpenSteamToolService
         }
 
         if (extracted == 0)
-            throw new InvalidOperationException("内核安装包中未找到有效的内核文件");
+            throw new InvalidOperationException("驱动安装包中未找到有效的驱动文件");
 
         // 确保插件目录与清单缓存目录就绪
         var stPluginDir = Path.Combine(steamPath, "config", "stplug-in");
@@ -135,8 +135,8 @@ public class OpenSteamToolService : IOpenSteamToolService
             Directory.CreateDirectory(configDepotCacheDir);
         }
 
-        status?.Report("KeySteamTool (LTS) 内核安装就绪");
-        LogService.Info("内核", "KeySteamTool (LTS) 内核已成功部署至 Steam 根目录及插件目录。");
+        status?.Report("运行核心驱动安装就绪");
+        LogService.Info("驱动", "运行核心驱动已成功部署至 Steam 根目录及插件目录。");
         return Task.CompletedTask;
     }
 
@@ -157,7 +157,7 @@ public class OpenSteamToolService : IOpenSteamToolService
             if (File.Exists(path))
             {
                 try { File.Delete(path); }
-                catch (Exception ex) { LogService.Warn("内核卸载", $"删除 {dll} 失败: {ex.Message}"); }
+                catch (Exception ex) { LogService.Warn("驱动卸载", $"删除 {dll} 失败: {ex.Message}"); }
             }
         }
 
@@ -167,12 +167,12 @@ public class OpenSteamToolService : IOpenSteamToolService
             try { File.Delete(cfgPath); } catch { }
         }
 
-        LogService.Info("内核", "KeySteamTool 内核已成功卸载。");
+        LogService.Info("驱动", "运行核心驱动已成功卸载。");
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// 清除 9月9日之前的旧版废弃文件（如 OpenSteamTool.dll、toml 配置文件等）。
+    /// 清除旧版废弃文件（如 OpenSteamTool.dll、toml 配置文件等）。
     /// 注意：严禁删除 steam.cfg 与 config\stplug-in 目录。
     /// </summary>
     private static void CleanLegacyConflictFiles(string steamPath)

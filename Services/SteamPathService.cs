@@ -313,7 +313,7 @@ public class SteamPathService : ISteamPathService
         var steamPath = !string.IsNullOrEmpty(_customPath) ? _customPath : DetectSteamPath();
         if (string.IsNullOrEmpty(steamPath)) return SteamToolType.None;
 
-        // KeySteamTool (kst / TanuShiki) — 核心内核（含 dwmapi.dll 注入代理或 KeySteamTool.dll）
+        // 核心运行驱动（含 dwmapi.dll 注入代理或 KeySteamTool.dll）
         if (File.Exists(Path.Combine(steamPath, "KeySteamTool.dll")) ||
             (File.Exists(Path.Combine(steamPath, "dwmapi.dll")) && Directory.Exists(Path.Combine(steamPath, @"config\stplug-in"))))
             return SteamToolType.KeySteamTool;

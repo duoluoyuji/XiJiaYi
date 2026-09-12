@@ -32,11 +32,6 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="游戏列表" FontSize="16" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                    <Border Margin="10,0,0,0" Padding="8,2" CornerRadius="4" VerticalAlignment="Center"
-                            Background="#14FFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1">
-                        <TextBlock Text="支持拖入 .lua 清单 / 授权文件自动入库" FontSize="11"
-                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
-                    </Border>
                 </StackPanel>
                 <TextBlock Text="{Binding RefreshProgressText}" FontSize="12" Margin="0,2,0,0"
                            Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>

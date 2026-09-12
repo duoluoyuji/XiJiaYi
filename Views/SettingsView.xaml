@@ -114,7 +114,7 @@
                         </ui:SettingsCard>
 
                         <ui:SettingsCard Header="插件/清单路径" Margin="0,0,0,8"
-                                         Description="KeySteamTool 内核所读取的脚本与清单目录（config\stplug-in）"
+                                         Description="运行核心驱动所读取的脚本与清单目录（config\stplug-in）"
                                          ui:ControlHelper.CornerRadius="8">
                             <ui:SettingsCard.Background>
                                 <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.45"/>
@@ -289,14 +289,14 @@
                                 <ComboBox.Background>
                                     <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.45"/>
                                 </ComboBox.Background>
-                                <ComboBoxItem Content="ShikiLua 内置库 (KeySteam 全量数据)" Tag="ShikiLua"/>
-                                <ComboBoxItem Content="本地缓存仓库 V2 (ManifestHub 镜像)" Tag="DepotKey2"/>
+                                <ComboBoxItem Content="内置离线高速库 (推荐)" Tag="ShikiLua"/>
+                                <ComboBoxItem Content="备用镜像库 (ManifestHub)" Tag="DepotKey2"/>
                                 <ComboBoxItem Content="远程清单仓库" Tag="Remote"/>
                             </ComboBox>
                         </ui:SettingsCard>
 
-                        <ui:SettingsCard Header="底层内核 (KeySteamTool LTS)" Margin="0,0,0,8"
-                                         Description="搭载 KeySteam 核心技术栈，全面兼容 9月9日 后的 Steam 更新"
+                        <ui:SettingsCard Header="运行核心驱动" Margin="0,0,0,8"
+                                         Description="负责 Steam 游戏清单加载与运行环境底层支持"
                                          ui:ControlHelper.CornerRadius="8">
                             <ui:SettingsCard.Background>
                                 <SolidColorBrush Color="{DynamicResource CardBackgroundFillColorDefault}" Opacity="0.45"/>
@@ -304,13 +304,13 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding KernelStatusText}" VerticalAlignment="Center" Margin="0,0,12,0"
                                            FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                <Button Content="一键部署" Command="{Binding DeployKernelCommand}"
+                                <Button Content="一键部署驱动" Command="{Binding DeployKernelCommand}"
                                         Padding="12,6" Margin="4,0">
                                     <Button.Background>
                                         <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.45"/>
                                     </Button.Background>
                                 </Button>
-                                <Button Content="卸载内核" Command="{Binding UninstallKernelCommand}"
+                                <Button Content="卸载驱动" Command="{Binding UninstallKernelCommand}"
                                         Padding="12,6" Margin="4,0">
                                     <Button.Background>
                                         <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.45"/>
