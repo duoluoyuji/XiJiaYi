@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -471,10 +471,11 @@ namespace SteamLuaManager.ViewModels;
 			await ShowModernDialogAsync("操作被阻止", "该游戏已被禁用入库，请先启用后再联机。");
 			return;
 		}
-		if (_steamPathService.DetectSteamToolType() != SteamToolType.OpenSteamTool)
+		// 过渡阶段：只要配置了 Steam 路径即可尝试启动联机，不再强行拦截未安装 OpenSteamTool
+		var toolType = _steamPathService.DetectSteamToolType();
+		if (toolType == SteamToolType.None)
 		{
-			await ShowModernDialogAsync("提示", "未检测到 OpenSteamTool 内核，请先在左侧栏「内核管理」中安装。");
-			return;
+			LogService.Warn("联机", "未检测到注入内核，请确认游戏是否已配置联机补丁");
 		}
 
 		var steamPath = _steamPathService.DetectSteamPath();
@@ -519,7 +520,38 @@ namespace SteamLuaManager.ViewModels;
 		}
 		catch (Exception ex)
 		{
-			await ShowModernDialogAsync("错误", $"启动失败：{ex.Message}");
+			await ShowModernDialogAsync("启动失败", $"启动游戏失败: {ex.Message}");
+			LogService.Error("主页", $"480联机启动失败: {ex.Message}");
+		}
+	}
+
+	/// <summary>一键修复下载（从公共清单镜像库下载该游戏的 .manifest 文件并写入 depotcache，彻底解决 Steam 提示无网络连接无法下载的问题）。</summary>
+	public async Task FixDownloadManifestAsync(GameInfo game)
+	{
+		if (game == null) return;
+		StatusMessage = $"正在检索《{game.GameName}》({game.AppId}) 的清单文件...";
+		try
+		{
+			var progress = new Progress<string>(msg => StatusMessage = msg);
+			var (success, count, message) = await _steamManifestService.EnsureManifestsCachedAsync(game.AppId, progress);
+			if (success)
+			{
+				await ShowModernDialogAsync("清单补全成功",
+					$"已成功为《{game.GameName}》同步 {count} 个清单文件至 depotcache！\n\n" +
+					"现在您可以直接在 Steam 客户端中点击安装/开始下载。\n\n" +
+					"（提示：如果 Steam 界面仍残留“无网络连接”，请在 Steam 设置 -> 下载 中点击一次「清除下载缓存」后重启 Steam 即可。）");
+				StatusMessage = $"已成功补全《{game.GameName}》的清单";
+			}
+			else
+			{
+				await ShowModernDialogAsync("清单同步提示", message);
+				StatusMessage = message;
+			}
+		}
+		catch (Exception ex)
+		{
+			LogService.Error("清单修复", $"补全清单异常: {ex.Message}");
+			await ShowModernDialogAsync("错误", $"补全清单失败: {ex.Message}");
 		}
 	}
 

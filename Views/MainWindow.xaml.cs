@@ -214,29 +214,8 @@ public partial class MainWindow : Window
         // 启动时静默检查更新（有新版本会弹窗提示，失败不影响使用）
         _ = _settingsViewModel.CheckForUpdatesSilentlyAsync();
 
-        switch (_viewModel.OpenSteamToolStatus)
-        {
-            case "未安装 OpenSteamTool":
-                await ShowModernDialogAsync(
-                    "未安装 OpenSteamTool",
-                    "未检测到 OpenSteamTool，本软件目前仅适配 OpenSteamTool。\n\n" +
-                    "请确保已在 Steam 目录中正确安装 OpenSteamTool 后再使用。\n\n" +
-                    "可在左侧栏「内核管理」中点击安装。");
-                break;
-
-            case "检测到不适配的 SteamTools":
-                var fixNow = await ShowModernConfirmAsync(
-                    "内核冲突提示",
-                    "检测到第三方 SteamTools（闭源）内核及残留配置，与本软件不适配。\n\n" +
-                    "本软件采用开源的 OpenSteamTool 内核，更稳定、且支持最新游戏与持续更新。\n\n" +
-                    "是否立即一键自动清理冲突残留，并安装 OpenSteamTool 内核？",
-                    "一键修复并安装");
-                if (fixNow)
-                {
-                    await InstallKernelAsync();
-                }
-                break;
-        }
+        // 过渡阶段：放宽启动时的强行阻断弹窗，兼容多种内核环境，正常记录日志
+        LogService.Info("内核状态", $"当前检测到内核状态: {_viewModel.OpenSteamToolStatus}");
 
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
     }
