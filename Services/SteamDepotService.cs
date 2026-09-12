@@ -92,19 +92,90 @@ public class SteamDepotService : ISteamDepotService
         }
     }
 
-    private string GetSourceCacheDir() =>
-        _currentSource switch
+    private string GetSourceCacheDirFor(string source) =>
+        source switch
         {
             "DepotKey2" => Path.Combine(_cacheFolder, "v2"),
             "ShikiLua" => Path.Combine(_cacheFolder, "v3"),
             _ => Path.Combine(_cacheFolder, "v1"),
         };
 
+    private string GetSourceCacheDir() => GetSourceCacheDirFor(_currentSource);
+
     private string GetDepotKeysPath() =>
         Path.Combine(GetSourceCacheDir(), "depotkeys.json");
 
     private string GetTokenKeysPath() =>
         Path.Combine(GetSourceCacheDir(), "appaccesstokens.json");
+
+    private Dictionary<string, string> LoadCombinedDepotKeys()
+    {
+        var combined = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. 内置离线数据兜底
+        var bundledPath = Path.Combine(GetBundledDataDir(), "depotkeys.json");
+        LoadKeysFromFile(bundledPath, combined);
+
+        // 2. 其它非当前选中的本地缓存源作为备用补充
+        foreach (var source in SourceNames)
+        {
+            if (!string.Equals(source, _currentSource, StringComparison.OrdinalIgnoreCase))
+            {
+                var otherPath = Path.Combine(GetSourceCacheDirFor(source), "depotkeys.json");
+                LoadKeysFromFile(otherPath, combined);
+            }
+        }
+
+        // 3. 当前选中的数据源作为最高优先级覆盖
+        var currentPath = GetDepotKeysPath();
+        LoadKeysFromFile(currentPath, combined);
+
+        return combined;
+    }
+
+    private Dictionary<string, string> LoadCombinedTokenKeys()
+    {
+        var combined = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var bundledPath = Path.Combine(GetBundledDataDir(), "appaccesstokens.json");
+        LoadKeysFromFile(bundledPath, combined);
+
+        foreach (var source in SourceNames)
+        {
+            if (!string.Equals(source, _currentSource, StringComparison.OrdinalIgnoreCase))
+            {
+                var otherPath = Path.Combine(GetSourceCacheDirFor(source), "appaccesstokens.json");
+                LoadKeysFromFile(otherPath, combined);
+            }
+        }
+
+        var currentPath = GetTokenKeysPath();
+        LoadKeysFromFile(currentPath, combined);
+
+        return combined;
+    }
+
+    private static void LoadKeysFromFile(string filePath, Dictionary<string, string> targetDict)
+    {
+        if (!File.Exists(filePath)) return;
+        try
+        {
+            var json = File.ReadAllText(filePath);
+            var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            if (dict != null)
+            {
+                foreach (var (k, v) in dict)
+                {
+                    if (!string.IsNullOrWhiteSpace(k) && !string.IsNullOrWhiteSpace(v))
+                        targetDict[k] = v;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("入库", $"读取密钥文件失败 ({filePath}): {ex.Message}");
+        }
+    }
 
     private async Task<bool> ResolveKeyUrlsAsync(CancellationToken ct = default)
     {
@@ -114,6 +185,12 @@ public class SteamDepotService : ISteamDepotService
             return true;
 
         if (_currentSource == "DepotKey")
+        {
+            _resolvedUrls[_currentSource] = (DefaultKeySourceCandidates[0].DepotKeysUrl, DefaultKeySourceCandidates[0].TokenKeysUrl);
+            return true;
+        }
+
+        if (_currentSource == "DepotKey2")
         {
             _resolvedUrls[_currentSource] = (Source2DepotKeysUrl, Source2TokenKeysUrl);
             return true;
@@ -398,22 +475,10 @@ public class SteamDepotService : ISteamDepotService
     {
         try
         {
-            if (!await EnsureKeyFilesAsync(ct))
-                return null;
+            await EnsureKeyFilesAsync(ct);
 
-            var depotKeysPath = GetDepotKeysPath();
-            var tokenKeysPath = GetTokenKeysPath();
-
-            Dictionary<string, string> depotKeys;
-            Dictionary<string, string> appTokens;
-            try
-            {
-                depotKeys = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(depotKeysPath))
-                    ?? new Dictionary<string, string>();
-                appTokens = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(tokenKeysPath))
-                    ?? new Dictionary<string, string>();
-            }
-            catch (Exception ex) { LogService.Warn("入库", $"读取密钥文件失败: {ex.Message}"); return null; }
+            var depotKeys = LoadCombinedDepotKeys();
+            var appTokens = LoadCombinedTokenKeys();
 
             var queryResult = await QueryAppAsync(appId, ct);
             if (queryResult == null) return null;
@@ -443,6 +508,10 @@ public class SteamDepotService : ISteamDepotService
                     depot.IsMatched = true;
                     matchedItems++;
                 }
+                else
+                {
+                    sb.AppendLine($"addappid({depot.DepotId})");
+                }
             }
 
             if (appTokens.TryGetValue(appId.ToString(), out var token))
@@ -453,7 +522,9 @@ public class SteamDepotService : ISteamDepotService
             }
 
             if (matchedItems == 0)
-                throw new InvalidOperationException($"本地缓存未找到 AppID {appId} 及其 depots 的任何密钥或 token，已停止生成入库文件");
+            {
+                LogService.Warn("入库", $"本地各仓库均未匹配到 AppID {appId} 的加密密钥，已生成基础入库配置（可配合分流清单或免费/公开库下载）");
+            }
 
             var luaFolder = _steamPathService.GetLuaFolder();
             if (string.IsNullOrEmpty(luaFolder)) return null;
@@ -466,7 +537,6 @@ public class SteamDepotService : ISteamDepotService
 
             return luaPath;
         }
-        catch (InvalidOperationException) { throw; }
         catch (Exception ex) { LogService.Error("入库", $"生成入库文件失败 (AppID {appId}): {ex.Message}"); return null; }
     }
 
@@ -474,22 +544,10 @@ public class SteamDepotService : ISteamDepotService
     {
         try
         {
-            if (!await EnsureKeyFilesAsync(ct))
-                return null;
+            await EnsureKeyFilesAsync(ct);
 
-            var depotKeysPath = GetDepotKeysPath();
-            var tokenKeysPath = GetTokenKeysPath();
-
-            Dictionary<string, string> depotKeys;
-            Dictionary<string, string> appTokens;
-            try
-            {
-                depotKeys = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(depotKeysPath))
-                    ?? new Dictionary<string, string>();
-                appTokens = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(tokenKeysPath))
-                    ?? new Dictionary<string, string>();
-            }
-            catch (Exception ex) { LogService.Warn("入库", $"读取密钥文件失败 (DLC): {ex.Message}"); return null; }
+            var depotKeys = LoadCombinedDepotKeys();
+            var appTokens = LoadCombinedTokenKeys();
 
             var queryResult = await QueryAppAsync(appId, ct);
             if (queryResult == null) return null;
@@ -517,6 +575,10 @@ public class SteamDepotService : ISteamDepotService
                     sb.AppendLine($"addappid({depot.DepotId}, 1, \"{key}\")");
                     matchedItems++;
                 }
+                else
+                {
+                    sb.AppendLine($"addappid({depot.DepotId})");
+                }
             }
 
             if (appTokens.TryGetValue(appId.ToString(), out var token))
@@ -533,13 +595,16 @@ public class SteamDepotService : ISteamDepotService
                 // Skip DLC that is already a main game depot (already handled above)
                 if (!mainDepotIds.Contains(dlcAppId))
                 {
-                    sb.AppendLine($"addappid({dlcAppId})");
-
                     if (depotKeys.TryGetValue(dlcAppId.ToString(), out var dlcMainKey))
                     {
                         sb.AppendLine($"addappid({dlcAppId}, 1, \"{dlcMainKey}\")");
                         matchedItems++;
                     }
+                    else
+                    {
+                        sb.AppendLine($"addappid({dlcAppId})");
+                    }
+
                     if (appTokens.TryGetValue(dlcAppId.ToString(), out var dlcToken))
                     {
                         sb.AppendLine($"addtoken({dlcAppId}, \"{dlcToken}\")");
@@ -548,23 +613,36 @@ public class SteamDepotService : ISteamDepotService
                 }
 
                 // Query DLC's own sub-depots for additional keys
-                var dlcResult = await QueryAppAsync(dlcAppId, ct);
-                if (dlcResult != null)
+                try
                 {
-                    foreach (var depot in dlcResult.GameDepots)
+                    var dlcResult = await QueryAppAsync(dlcAppId, ct);
+                    if (dlcResult != null)
                     {
-                        if (depotKeys.TryGetValue(depot.DepotId.ToString(), out var key))
+                        foreach (var depot in dlcResult.GameDepots)
                         {
-                            sb.AppendLine($"addappid({depot.DepotId}, 1, \"{key}\")");
-                            matchedItems++;
+                            if (depotKeys.TryGetValue(depot.DepotId.ToString(), out var key))
+                            {
+                                sb.AppendLine($"addappid({depot.DepotId}, 1, \"{key}\")");
+                                matchedItems++;
+                            }
+                            else
+                            {
+                                sb.AppendLine($"addappid({depot.DepotId})");
+                            }
                         }
                     }
+                }
+                catch (Exception ex)
+                {
+                    LogService.Warn("入库", $"查询 DLC {dlcAppId} 仓库信息跳过: {ex.Message}");
                 }
                 matchedDlc++;
             }
 
             if (matchedItems == 0)
-                throw new InvalidOperationException($"本地缓存未找到 AppID {appId}、其 depots 或 DLC 的任何密钥或 token，已停止生成入库文件");
+            {
+                LogService.Warn("入库", $"本地各仓库均未匹配到 AppID {appId}、其 depots 或 DLC 的加密密钥，已生成基础入库配置（可配合分流清单或免费/公开库下载）");
+            }
 
             var luaFolder = _steamPathService.GetLuaFolder();
             if (string.IsNullOrEmpty(luaFolder)) return null;
@@ -577,7 +655,6 @@ public class SteamDepotService : ISteamDepotService
 
             return luaPath;
         }
-        catch (InvalidOperationException) { throw; }
         catch (Exception ex) { LogService.Error("入库", $"生成入库文件失败 (AppID {appId}, DLC): {ex.Message}"); return null; }
     }
 
@@ -596,48 +673,21 @@ public class SteamDepotService : ISteamDepotService
                 return result;
             }
 
-            // 2. 有独立 depot → 需要密钥，从本地密钥仓库 v1 搜索
+            // 2. 有独立 depot → 需要密钥，从本地各密钥仓库联合搜索
             result.NeedKey = true;
+            await EnsureKeyFilesAsync(ct);
 
-            var prevSource = _currentSource;
-            UseDataSource("DepotKey");
-            try
+            var depotKeys = LoadCombinedDepotKeys();
+            if (depotKeys.TryGetValue(dlcAppId.ToString(), out var dlcMainKey))
             {
-                if (!await EnsureKeyFilesAsync(ct))
-                {
-                    result.Message = "无法获取密钥仓库文件";
-                    return result;
-                }
-
-                Dictionary<string, string> depotKeys;
-                try
-                {
-                    depotKeys = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(GetDepotKeysPath()))
-                        ?? new Dictionary<string, string>();
-                }
-                catch (Exception ex)
-                {
-                    LogService.Warn("获取DLC", $"读取密钥文件失败: {ex.Message}");
-                    result.Message = "读取密钥仓库文件失败";
-                    return result;
-                }
-
-                // 查找 DLC 自身主 AppID 的密钥
-                if (depotKeys.TryGetValue(dlcAppId.ToString(), out var dlcMainKey))
-                {
-                    var lines = new List<string> { $"addappid({dlcAppId}, 1, \"{dlcMainKey}\")" };
-                    await AppendLinesToLuaAsync(luaPath, lines, ct);
-                    result.Success = true;
-                    result.Message = $"DLC {dlcAppId} 密钥获取成功，已写入";
-                }
-                else
-                {
-                    result.Message = $"无法获取 DLC {dlcAppId} 的密钥信息（本地密钥仓库 v1 中未找到），获取失败";
-                }
+                var lines = new List<string> { $"addappid({dlcAppId}, 1, \"{dlcMainKey}\")" };
+                await AppendLinesToLuaAsync(luaPath, lines, ct);
+                result.Success = true;
+                result.Message = $"DLC {dlcAppId} 密钥获取成功，已写入";
             }
-            finally
+            else
             {
-                UseDataSource(prevSource);
+                result.Message = $"无法获取 DLC {dlcAppId} 的密钥信息（本地各密钥仓库中均未找到），获取失败";
             }
 
             return result;

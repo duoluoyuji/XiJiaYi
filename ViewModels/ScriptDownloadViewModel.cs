@@ -20,6 +20,7 @@ public partial class ScriptDownloadViewModel : ObservableObject
     private readonly ISteamDepotService _depotService;
     private readonly ISettingsService _settingsService;
     private readonly IHttpClientProvider _httpClientProvider;
+    private readonly ISteamManifestService _manifestService;
     private readonly DispatcherTimer _modeRefreshTimer;
     private string _currentDownloadMode = "DepotKey";
 
@@ -27,6 +28,7 @@ public partial class ScriptDownloadViewModel : ObservableObject
     private static readonly (string Cc, string Lang)[] StoreSearchLocales =
     {
         ("cn", "schinese"),
+        ("hk", "tchinese"),
         ("us", "english")
     };
 
@@ -55,12 +57,18 @@ public partial class ScriptDownloadViewModel : ObservableObject
     public ObservableCollection<FoundGame> SearchResults { get; } = new();
     public ObservableCollection<string> LogLines { get; } = new();
 
-    public ScriptDownloadViewModel(ISteamPathService steamPathService, ISteamDepotService depotService, ISettingsService settingsService, IHttpClientProvider httpClientProvider)
+    public ScriptDownloadViewModel(
+        ISteamPathService steamPathService,
+        ISteamDepotService depotService,
+        ISettingsService settingsService,
+        IHttpClientProvider httpClientProvider,
+        ISteamManifestService manifestService)
     {
         _steamPathService = steamPathService;
         _depotService = depotService;
         _settingsService = settingsService;
         _httpClientProvider = httpClientProvider;
+        _manifestService = manifestService;
         _currentDownloadMode = _settingsService.Load().DownloadMode;
 
         _modeRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -372,10 +380,10 @@ public partial class ScriptDownloadViewModel : ObservableObject
                 luaPath = await _depotService.GenerateLuaAsync(appId);
             }
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            AddLog($"❌ {ex.Message}");
-            StatusMessage = "入库失败：本地缓存缺少解密密钥";
+            AddLog($"❌ 生成配置异常：{ex.Message}");
+            StatusMessage = "生成配置失败";
             return;
         }
 
@@ -387,6 +395,26 @@ public partial class ScriptDownloadViewModel : ObservableObject
         }
 
         AddLog($"✅ Lua 配置文件已保存：{luaPath}");
+
+        AddLog("⚡ 正在自动同步/补全游戏清单缓存 (depotcache)...");
+        try
+        {
+            var (manifestOk, manifestCount, manifestMsg) = await _manifestService.EnsureManifestsCachedAsync(appId);
+            if (manifestOk)
+            {
+                AddLog($"✅ {manifestMsg}");
+            }
+            else
+            {
+                AddLog($"ℹ️ 清单提示：{manifestMsg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("入库", $"自动补全清单失败: {ex.Message}");
+            AddLog($"⚠️ 清单补齐跳过：{ex.Message}");
+        }
+
         AddLog($"🎉 入库成功！Lua 文件：{Path.GetFileName(luaPath)}");
         StatusMessage = $"入库成功：{queryResult.AppName}";
     }
@@ -420,6 +448,21 @@ public partial class ScriptDownloadViewModel : ObservableObject
 
         if (luaCount > 0)
         {
+            if (int.TryParse(gameId, out var remoteAppId))
+            {
+                try
+                {
+                    AddLog("⚡ 正在自动同步/补全游戏清单缓存 (depotcache)...");
+                    var (manifestOk, _, manifestMsg) = await _manifestService.EnsureManifestsCachedAsync(remoteAppId);
+                    if (manifestOk) AddLog($"✅ {manifestMsg}");
+                    else AddLog($"ℹ️ 清单提示：{manifestMsg}");
+                }
+                catch (Exception ex)
+                {
+                    LogService.Warn("入库", $"远程入库补齐清单异常: {ex.Message}");
+                }
+            }
+
             AddLog($"🎉 入库完成！共导入 {luaCount} 个 Lua 脚本");
             StatusMessage = $"成功入库 {luaCount} 个 Lua 脚本";
         }
