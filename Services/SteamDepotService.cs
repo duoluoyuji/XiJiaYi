@@ -18,8 +18,8 @@ public class SteamDepotService : ISteamDepotService
     private const string Source2DepotKeysUrl = "https://api.993499094.xyz/depotkeys.json";
     private const string Source2TokenKeysUrl = "https://api.993499094.xyz/appaccesstokens.json";
     /// <summary>内置高速密钥源；未配置托管时由内置离线数据兜底。</summary>
-    private const string ShikiLuaDepotKeysUrl = "https://raw.githubusercontent.com/duoluoyuji/ShikiLuaDepot/main/depotkeys.json";
-    private const string ShikiLuaTokenKeysUrl = "https://raw.githubusercontent.com/duoluoyuji/ShikiLuaDepot/main/appaccesstokens.json";
+    private const string ShikiLuaDepotKeysUrl = "https://api.993499094.xyz/depotkeys.json";
+    private const string ShikiLuaTokenKeysUrl = "https://api.993499094.xyz/appaccesstokens.json";
 
     /// <summary>备用密钥数据源（ManifestHub 仓库及其镜像），按顺序逐个尝试。</summary>
     private static readonly (string DepotKeysUrl, string TokenKeysUrl)[] DefaultKeySourceCandidates =
