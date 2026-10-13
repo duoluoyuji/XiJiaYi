@@ -154,8 +154,8 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         var type = _steamPathService.DetectSteamToolType();
         KernelStatusText = type switch
         {
-            SteamToolType.KeySteamTool => "运行核心驱动已就绪",
-            SteamToolType.OpenSteamTool => "旧版驱动 (已失效)",
+            SteamToolType.OpenSteamTool => "运行核心驱动已就绪",
+            SteamToolType.KeySteamTool => "旧版驱动 (已失效)",
             SteamToolType.SteamTools => "检测到第三方工具",
             _ => "未安装"
         };

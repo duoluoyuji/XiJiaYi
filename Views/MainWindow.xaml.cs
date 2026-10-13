@@ -741,7 +741,7 @@ public partial class MainWindow : Window
         }
 
         var localVersion = await _openSteamToolService.GetLocalVersionAsync() ?? "未知";
-        if (localVersion.Contains("运行核心") || localVersion.Contains("KeySteamTool"))
+        if (localVersion.Contains("OpenSteamTool") || localVersion.Contains("运行核心"))
         {
             await ShowModernDialogAsync("无需更新", $"当前已是最新驱动：{localVersion}\n底层架构完整，已支持清单高速加载与环境运行。");
             return;

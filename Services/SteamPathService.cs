@@ -11,7 +11,7 @@ public class SteamPathService : ISteamPathService
 {
     private const string RegistryPath = @"SOFTWARE\WOW6432Node\Valve\Steam";
     private const string InstallPathKey = "InstallPath";
-    private const string LuaSubFolder = @"config\stplug-in";
+    private const string LuaSubFolder = @"config\lua";
     private const string ConfigFileName = "opensteamtool.toml";
     private const string ExampleConfigFileName = "opensteamtool.example.toml";
     private string? _customPath;
@@ -156,18 +156,23 @@ public class SteamPathService : ISteamPathService
             catch (Exception ex) { LogService.Warn("Steam路径", $"创建 Lua 目录失败: {ex.Message}"); return null; }
         }
 
-        // 自动将 config\lua 旧目录中的现有脚本无损迁移同步至 config\stplug-in，确保旧游戏无缝在新内核下可用
+        // 自动将 config\stplug-in 旧目录中的现有脚本无损迁移同步至 config\lua，确保旧游戏无缝在新内核下可用
         try
         {
-            var legacyLuaPath = Path.Combine(basePath, @"config\lua");
-            if (Directory.Exists(legacyLuaPath) && string.Equals(Path.GetFullPath(luaPath), Path.GetFullPath(Path.Combine(basePath, LuaSubFolder)), StringComparison.OrdinalIgnoreCase))
+            var legacyPluginPath = Path.Combine(basePath, @"config\stplug-in");
+            if (Directory.Exists(legacyPluginPath) && string.Equals(Path.GetFullPath(luaPath), Path.GetFullPath(Path.Combine(basePath, LuaSubFolder)), StringComparison.OrdinalIgnoreCase))
             {
-                foreach (var legacyFile in Directory.GetFiles(legacyLuaPath, "*.lua"))
+                foreach (var legacyFile in Directory.GetFiles(legacyPluginPath))
                 {
-                    var dest = Path.Combine(luaPath, Path.GetFileName(legacyFile));
-                    if (!File.Exists(dest))
+                    var ext = Path.GetExtension(legacyFile);
+                    if (string.Equals(ext, ".lua", StringComparison.OrdinalIgnoreCase) || string.Equals(ext, ".ks", StringComparison.OrdinalIgnoreCase))
                     {
-                        File.Copy(legacyFile, dest, overwrite: false);
+                        var baseName = Path.GetFileNameWithoutExtension(legacyFile);
+                        var dest = Path.Combine(luaPath, $"{baseName}.lua");
+                        if (!File.Exists(dest))
+                        {
+                            File.Copy(legacyFile, dest, overwrite: false);
+                        }
                     }
                 }
             }
@@ -313,15 +318,15 @@ public class SteamPathService : ISteamPathService
         var steamPath = !string.IsNullOrEmpty(_customPath) ? _customPath : DetectSteamPath();
         if (string.IsNullOrEmpty(steamPath)) return SteamToolType.None;
 
-        // 核心运行驱动（含 dwmapi.dll 注入代理或 KeySteamTool.dll）
-        if (File.Exists(Path.Combine(steamPath, "KeySteamTool.dll")) ||
-            (File.Exists(Path.Combine(steamPath, "dwmapi.dll")) && Directory.Exists(Path.Combine(steamPath, @"config\stplug-in"))))
-            return SteamToolType.KeySteamTool;
-
-        // OpenSteamTool (开源旧版)
+        // OpenSteamTool (开源核心驱动)
         if (File.Exists(Path.Combine(steamPath, "OpenSteamTool.dll")) ||
             File.Exists(Path.Combine(steamPath, "opensteamtool.toml")))
             return SteamToolType.OpenSteamTool;
+
+        // KeySteam (旧版离线驱动)
+        if (File.Exists(Path.Combine(steamPath, "KeySteamTool.dll")) ||
+            (File.Exists(Path.Combine(steamPath, "dwmapi.dll")) && Directory.Exists(Path.Combine(steamPath, @"config\stplug-in"))))
+            return SteamToolType.KeySteamTool;
 
         // SteamTools (闭源旧版)
         if (File.Exists(Path.Combine(steamPath, "hid.dll")))

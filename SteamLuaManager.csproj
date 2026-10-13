@@ -46,7 +46,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\SvcMonitor.zip" />
-    <EmbeddedResource Include="Resources\KeySteamTool.zip" />
+    <EmbeddedResource Include="Resources\OpenSteamTool.zip" />
   </ItemGroup>
 
   <ItemGroup>

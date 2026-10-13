@@ -63,10 +63,10 @@ public class LuaFileManager : ILuaFileManager, IDisposable
     private static List<string> GetScriptFiles(string folder)
     {
         if (!Directory.Exists(folder)) return new List<string>();
-        var files = Directory.GetFiles(folder, "*.ks")
-            .Concat(Directory.GetFiles(folder, "*.lua"))
+        var files = Directory.GetFiles(folder, "*.lua")
+            .Concat(Directory.GetFiles(folder, "*.ks"))
             .GroupBy(Path.GetFileNameWithoutExtension, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.OrderByDescending(f => f.EndsWith(".ks", StringComparison.OrdinalIgnoreCase)).First())
+            .Select(g => g.OrderByDescending(f => f.EndsWith(".lua", StringComparison.OrdinalIgnoreCase)).First())
             .ToList();
         return files;
     }
@@ -133,9 +133,9 @@ public class LuaFileManager : ILuaFileManager, IDisposable
             var luaFolder = _steamPathService.GetLuaFolder();
             if (string.IsNullOrEmpty(luaFolder)) return null;
 
-            var ksPath = Path.Combine(luaFolder, $"{appId}.ks");
             var luaPath = Path.Combine(luaFolder, $"{appId}.lua");
-            var filePath = File.Exists(ksPath) ? ksPath : (File.Exists(luaPath) ? luaPath : null);
+            var ksPath = Path.Combine(luaFolder, $"{appId}.ks");
+            var filePath = File.Exists(luaPath) ? luaPath : (File.Exists(ksPath) ? ksPath : null);
             if (filePath == null) return null;
 
             var game = new GameInfo
@@ -241,10 +241,10 @@ public class LuaFileManager : ILuaFileManager, IDisposable
     private static string? FindScriptInFolder(string folder, int appId)
     {
         if (!Directory.Exists(folder)) return null;
-        var ks = Path.Combine(folder, $"{appId}.ks");
-        if (File.Exists(ks)) return ks;
         var lua = Path.Combine(folder, $"{appId}.lua");
         if (File.Exists(lua)) return lua;
+        var ks = Path.Combine(folder, $"{appId}.ks");
+        if (File.Exists(ks)) return ks;
         return null;
     }
 

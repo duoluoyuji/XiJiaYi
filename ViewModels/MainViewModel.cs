@@ -211,8 +211,8 @@ namespace SteamLuaManager.ViewModels;
 			: detectedPath ?? "未检测到Steam";
 		OpenSteamToolStatus = _steamPathService.DetectSteamToolType() switch
 		{
-			SteamToolType.KeySteamTool => "运行核心驱动已就绪",
-			SteamToolType.OpenSteamTool => "旧版驱动 (已失效，请升级)",
+			SteamToolType.OpenSteamTool => "运行核心驱动已就绪",
+			SteamToolType.KeySteamTool => "旧版驱动 (已失效，请升级)",
 			SteamToolType.SteamTools => "检测到第三方工具",
 			_ => "驱动未就绪 (请在「设置」中一键部署)"
 		};
