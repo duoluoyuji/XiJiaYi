@@ -508,9 +508,9 @@ public class SteamDepotService : ISteamDepotService
             if (!Directory.Exists(luaFolder))
                 Directory.CreateDirectory(luaFolder);
 
-            var scriptPath = Path.Combine(luaFolder, $"{appId}.ks");
-            var oldLua = Path.Combine(luaFolder, $"{appId}.lua");
-            if (File.Exists(oldLua)) try { File.Delete(oldLua); } catch { }
+            var scriptPath = Path.Combine(luaFolder, $"{appId}.lua");
+            var oldKs = Path.Combine(luaFolder, $"{appId}.ks");
+            if (File.Exists(oldKs)) try { File.Delete(oldKs); } catch { }
             await File.WriteAllTextAsync(scriptPath, sb.ToString(), ct);
 
             return scriptPath;
@@ -630,9 +630,9 @@ public class SteamDepotService : ISteamDepotService
             if (!Directory.Exists(luaFolder))
                 Directory.CreateDirectory(luaFolder);
 
-            var scriptPath = Path.Combine(luaFolder, $"{appId}.ks");
-            var oldLua = Path.Combine(luaFolder, $"{appId}.lua");
-            if (File.Exists(oldLua)) try { File.Delete(oldLua); } catch { }
+            var scriptPath = Path.Combine(luaFolder, $"{appId}.lua");
+            var oldKs = Path.Combine(luaFolder, $"{appId}.ks");
+            if (File.Exists(oldKs)) try { File.Delete(oldKs); } catch { }
             await File.WriteAllTextAsync(scriptPath, sb.ToString(), ct);
 
             return scriptPath;

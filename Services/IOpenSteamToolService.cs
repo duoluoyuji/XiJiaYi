@@ -2,10 +2,8 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
+using Microsoft.Win32;
 
 namespace SteamLuaManager.Services;
 
@@ -25,9 +23,8 @@ public class OpenSteamToolService : IOpenSteamToolService
     private readonly IHttpClientProvider _httpClientProvider;
     private readonly ISteamPathService _steamPathService;
     private readonly ISettingsService _settingsService;
-    private const string OfficialRepo = "OpenSteam001/OpenSteamTool";
-    private const string ForkRepo = "pvzcxw/OpenSteamTool";
-    private static readonly string[] RequiredDlls = ["dwmapi.dll", "KeySteamTool.dll", "cloud_redirect.dll", "xinput1_4.dll"];
+    private const string OfficialRepo = "mmxlyo/OpenSteamTool";
+    private static readonly string[] RequiredDlls = ["OpenSteamTool.dll", "dwmapi.dll", "xinput1_4.dll"];
 
     public OpenSteamToolService(ISteamPathService steamPathService, IHttpClientProvider httpClientProvider, ISettingsService settingsService)
     {
@@ -47,7 +44,7 @@ public class OpenSteamToolService : IOpenSteamToolService
         get
         {
             var type = _steamPathService.DetectSteamToolType();
-            return type == SteamToolType.KeySteamTool || type == SteamToolType.OpenSteamTool;
+            return type == SteamToolType.OpenSteamTool || type == SteamToolType.KeySteamTool;
         }
     }
 
@@ -62,30 +59,80 @@ public class OpenSteamToolService : IOpenSteamToolService
         var steamPath = GetSteamPath();
         if (steamPath == null) return Task.FromResult<string?>(null);
 
+        var ostPath = Path.Combine(steamPath, "OpenSteamTool.dll");
+        if (File.Exists(ostPath))
+        {
+            try
+            {
+                var vi = FileVersionInfo.GetVersionInfo(ostPath);
+                var ver = vi.ProductVersion ?? vi.FileVersion;
+                if (!string.IsNullOrWhiteSpace(ver) && ver != "0.0.0.0")
+                {
+                    return Task.FromResult<string?>($"OpenSteamTool v{ver}");
+                }
+            }
+            catch { }
+            return Task.FromResult<string?>("OpenSteamTool v1.4.8.15");
+        }
+
         var kstPath = Path.Combine(steamPath, "KeySteamTool.dll");
         if (File.Exists(kstPath))
         {
-            return Task.FromResult<string?>("运行核心驱动 v2.99");
+            return Task.FromResult<string?>("旧版 KeySteam (已失效，请升级)");
         }
 
         var dwmPath = Path.Combine(steamPath, "dwmapi.dll");
         if (File.Exists(dwmPath) && Directory.Exists(Path.Combine(steamPath, "config", "stplug-in")))
         {
-            return Task.FromResult<string?>("运行核心驱动 (LTS)");
-        }
-
-        var ostPath = Path.Combine(steamPath, "OpenSteamTool.dll");
-        if (File.Exists(ostPath))
-        {
-            return Task.FromResult<string?>("旧版驱动 (已废弃)");
+            return Task.FromResult<string?>("旧版驱动 (已失效，请升级)");
         }
 
         return Task.FromResult<string?>(null);
     }
 
-    public Task<(string version, string downloadUrl, string releaseUrl)> GetRemoteInfoAsync()
+    public async Task<(string version, string downloadUrl, string releaseUrl)> GetRemoteInfoAsync()
     {
-        return Task.FromResult(("v2.99", "", "https://github.com/"));
+        const string fallbackVersion = "v1.4.8.15-fix2";
+        const string fallbackRelease = "https://github.com/mmxlyo/OpenSteamTool/releases";
+        const string fallbackDownload = "https://github.com/mmxlyo/OpenSteamTool/releases/download/1.4.8.15-fix2/OpenSteamTool-1.4.8.15-fix2-Release.zip";
+
+        try
+        {
+            var client = _httpClientProvider.GetClient("GitHub", TimeSpan.FromSeconds(10), ConfigureHeaders);
+            var url = $"https://api.github.com/repos/{OfficialRepo}/releases/latest";
+            var response = await client.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                var tagName = root.GetProperty("tag_name").GetString() ?? fallbackVersion;
+                var htmlUrl = root.GetProperty("html_url").GetString() ?? fallbackRelease;
+                var downloadUrl = fallbackDownload;
+
+                if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var asset in assets.EnumerateArray())
+                    {
+                        var name = asset.GetProperty("name").GetString() ?? "";
+                        if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                            name.Contains("Release", StringComparison.OrdinalIgnoreCase))
+                        {
+                            downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? downloadUrl;
+                            break;
+                        }
+                    }
+                }
+
+                return (tagName, downloadUrl, htmlUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("驱动更新", $"获取远程 OpenSteamTool 版本失败: {ex.Message}");
+        }
+
+        return (fallbackVersion, fallbackDownload, fallbackRelease);
     }
 
     public Task InstallEmbeddedAsync(IProgress<string>? status = null)
@@ -96,10 +143,10 @@ public class OpenSteamToolService : IOpenSteamToolService
 
         CleanLegacyConflictFiles(steamPath);
 
-        status?.Report("正在解压并安装运行核心驱动文件...");
-        using var stream = typeof(OpenSteamToolService).Assembly.GetManifestResourceStream("SteamLuaManager.Resources.KeySteamTool.zip");
+        status?.Report("正在解压并安装 OpenSteamTool 内核文件...");
+        using var stream = typeof(OpenSteamToolService).Assembly.GetManifestResourceStream("SteamLuaManager.Resources.OpenSteamTool.zip");
         if (stream == null)
-            throw new InvalidOperationException("未找到内置的运行核心驱动离线包资源");
+            throw new InvalidOperationException("未找到内置的 OpenSteamTool 内核离线包资源");
 
         using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
         var extracted = 0;
@@ -116,11 +163,29 @@ public class OpenSteamToolService : IOpenSteamToolService
         if (extracted == 0)
             throw new InvalidOperationException("驱动安装包中未找到有效的驱动文件");
 
-        // 确保插件目录与清单缓存目录就绪
-        var stPluginDir = Path.Combine(steamPath, "config", "stplug-in");
-        if (!Directory.Exists(stPluginDir))
+        // 确保 Lua 脚本目录与清单缓存目录就绪
+        var luaDir = Path.Combine(steamPath, "config", "lua");
+        if (!Directory.Exists(luaDir))
         {
-            Directory.CreateDirectory(stPluginDir);
+            Directory.CreateDirectory(luaDir);
+        }
+
+        // 兼容迁移：如果旧版的 config\stplug-in 存在 Lua 脚本，自动同步一份到 config\lua
+        var oldStPluginDir = Path.Combine(steamPath, "config", "stplug-in");
+        if (Directory.Exists(oldStPluginDir))
+        {
+            try
+            {
+                foreach (var luaFile in Directory.GetFiles(oldStPluginDir, "*.lua"))
+                {
+                    var dest = Path.Combine(luaDir, Path.GetFileName(luaFile));
+                    if (!File.Exists(dest))
+                    {
+                        File.Copy(luaFile, dest, overwrite: false);
+                    }
+                }
+            }
+            catch { }
         }
 
         var depotCacheDir = Path.Combine(steamPath, "depotcache");
@@ -135,8 +200,8 @@ public class OpenSteamToolService : IOpenSteamToolService
             Directory.CreateDirectory(configDepotCacheDir);
         }
 
-        status?.Report("运行核心驱动安装就绪");
-        LogService.Info("驱动", "运行核心驱动已成功部署至 Steam 根目录及插件目录。");
+        status?.Report("OpenSteamTool 开源内核安装就绪");
+        LogService.Info("驱动", "OpenSteamTool 开源内核已成功部署至 Steam 根目录及 Lua 配置目录。");
         return Task.CompletedTask;
     }
 
@@ -161,23 +226,40 @@ public class OpenSteamToolService : IOpenSteamToolService
             }
         }
 
-        var cfgPath = Path.Combine(steamPath, "steam.cfg");
-        if (File.Exists(cfgPath))
+        var additionalFiles = new[] { "ost-Injector.exe", "config.ini", "opensteamtool.toml", "CreateAutoInjectTask.bat", "DeleteAutoInjectTask.bat" };
+        foreach (var file in additionalFiles)
         {
-            try { File.Delete(cfgPath); } catch { }
+            var path = Path.Combine(steamPath, file);
+            if (File.Exists(path))
+            {
+                try { File.Delete(path); } catch { }
+            }
         }
 
-        LogService.Info("驱动", "运行核心驱动已成功卸载。");
+        // 清理开机自启注入项（若曾配置）
+        try
+        {
+            using var runKey = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
+            runKey?.DeleteValue("OpenSteamTool_AutoInject", throwOnMissingValue: false);
+        }
+        catch { }
+
+        LogService.Info("驱动", "OpenSteamTool 内核已成功卸载。");
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// 清除旧版废弃文件（如 OpenSteamTool.dll、toml 配置文件等）。
-    /// 注意：严禁删除 steam.cfg 与 config\stplug-in 目录。
+    /// 清除旧版废弃冲突文件（如旧版 KeySteamTool.dll、cloud_redirect.dll、旧版 rogue dwmapi.dll 等）。
     /// </summary>
     private static void CleanLegacyConflictFiles(string steamPath)
     {
-        var obsoleteFiles = new[] { "OpenSteamTool.dll", "opensteamtool.toml", "opensteamtool.example.toml", "hid.dll" };
+        var obsoleteFiles = new[]
+        {
+            "KeySteamTool.dll",
+            "cloud_redirect.dll",
+            "hid.dll"
+        };
+
         foreach (var file in obsoleteFiles)
         {
             var p = Path.Combine(steamPath, file);
@@ -185,6 +267,13 @@ public class OpenSteamToolService : IOpenSteamToolService
             {
                 try { File.Delete(p); } catch { }
             }
+        }
+
+        // 清理可能遗留在 bin 目录下的老旧劫持 dll
+        var binDwm = Path.Combine(steamPath, "bin", "dwmapi.dll");
+        if (File.Exists(binDwm))
+        {
+            try { File.Delete(binDwm); } catch { }
         }
     }
 
