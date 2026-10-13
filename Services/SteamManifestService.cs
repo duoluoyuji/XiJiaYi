@@ -1,4 +1,5 @@
 using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -109,86 +110,24 @@ public class SteamManifestService : ISteamManifestService
             // 先执行一轮现有清单双向同步，避免遗漏
             await SyncDepotcacheAsync(ct);
 
-            progress?.Report($"正在检索 AppID {appId} 的可用清单文件列表...");
+            progress?.Report($"正在解析 AppID {appId} 的 Depot 清单信息...");
 
-            // 1. 查询清单镜像库中的文件列表（优先 git trees API，其次 contents API）
-            var treeUrls = new[]
+            var depotManifests = await ResolveDepotsForAppAsync(appId, steamPath, ct);
+            if (depotManifests.Count == 0)
             {
-                $"https://api.github.com/repos/P-ToyStore/SteamManifestCache_Pro/git/trees/{appId}",
-                $"https://api.github.com/repos/P-ToyStore/SteamManifestCache_Pro/contents?ref={appId}",
-                $"https://ghproxy.net/https://api.github.com/repos/P-ToyStore/SteamManifestCache_Pro/git/trees/{appId}"
-            };
-
-            var manifestFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var url in treeUrls)
-            {
-                if (ct.IsCancellationRequested) break;
-                try
-                {
-                    var json = await _httpClientProvider.SendWithProxyRetryAsync(
-                        "manifest-cache-list",
-                        TimeSpan.FromSeconds(12),
-                        client => client.GetStringAsync(url),
-                        client =>
-                        {
-                            if (!client.DefaultRequestHeaders.UserAgent.Any())
-                                client.DefaultRequestHeaders.UserAgent.ParseAdd("XiJiaYi/1.0");
-                            if (!client.DefaultRequestHeaders.Accept.Any())
-                                client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
-                        });
-
-                    using var doc = JsonDocument.Parse(json);
-                    var root = doc.RootElement;
-
-                    if (root.TryGetProperty("tree", out var treeElement) && treeElement.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var item in treeElement.EnumerateArray())
-                        {
-                            if (item.TryGetProperty("path", out var pathProp))
-                            {
-                                var p = pathProp.GetString();
-                                if (!string.IsNullOrEmpty(p) && p.EndsWith(".manifest", StringComparison.OrdinalIgnoreCase))
-                                    manifestFiles.Add(Path.GetFileName(p));
-                            }
-                        }
-                    }
-                    else if (root.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var item in root.EnumerateArray())
-                        {
-                            if (item.TryGetProperty("name", out var nameProp))
-                            {
-                                var n = nameProp.GetString();
-                                if (!string.IsNullOrEmpty(n) && n.EndsWith(".manifest", StringComparison.OrdinalIgnoreCase))
-                                    manifestFiles.Add(n);
-                            }
-                        }
-                    }
-
-                    if (manifestFiles.Count > 0)
-                        break;
-                }
-                catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-                {
-                    // 404 说明号池分支尚未收录该 AppID
-                    return (false, 0, $"清单镜像库中暂未收录 AppID {appId} 的清单文件。\n对于极冷门或刚发售游戏，通常需要等待号池同步，或通过分流包导入。");
-                }
-                catch (Exception ex)
-                {
-                    LogService.Warn("清单同步", $"请求清单列表失败 ({url}): {ex.Message}");
-                }
+                return (false, 0, $"未能获取到 AppID {appId} 的有效 Depot 清单信息，可能该游戏无需额外清单或网络请求超时。");
             }
-
-            if (manifestFiles.Count == 0)
-                return (false, 0, $"未能获取到 AppID {appId} 的有效清单信息，可能该游戏未收录或网络访问异常。");
 
             var downloadedCount = 0;
             var existingCount = 0;
 
-            foreach (var manifestName in manifestFiles)
+            foreach (var kvp in depotManifests)
             {
                 ct.ThrowIfCancellationRequested();
+
+                var depotId = kvp.Key;
+                var manifestId = kvp.Value;
+                var manifestName = $"{depotId}_{manifestId}.manifest";
 
                 var targetPath = Path.Combine(depotcacheDir, manifestName);
                 var targetConfigPath = Path.Combine(configDepotDir, manifestName);
@@ -214,52 +153,119 @@ public class SteamManifestService : ISteamManifestService
                     continue;
                 }
 
-                progress?.Report($"正在下载清单: {manifestName}...");
+                progress?.Report($"正在获取 Depot {depotId} 清单授权码...");
 
-                // 多源重试下载单文件
-                var downloadCandidates = new[]
+                var codeSources = new (string url, string ua)[]
                 {
-                    $"https://raw.githubusercontent.com/P-ToyStore/SteamManifestCache_Pro/{appId}/{manifestName}",
-                    $"https://raw.gitmirror.com/P-ToyStore/SteamManifestCache_Pro/{appId}/{manifestName}",
-                    $"https://ghproxy.net/https://raw.githubusercontent.com/P-ToyStore/SteamManifestCache_Pro/{appId}/{manifestName}",
-                    $"https://cdn.jsdelivr.net/gh/P-ToyStore/SteamManifestCache_Pro@{appId}/{manifestName}"
+                    ($"https://20770407.xyz/manifest/{depotId}/{manifestId}", "Mozilla/5.0"),
+                    ($"https://steamapi.993499094.xyz/manifest/{depotId}/{manifestId}", "Mozilla/5.0"),
+                    ($"https://manifest.manifestdex.com/{depotId}", "ManifestDeX/1.0"),
+                    ($"https://manifest.steam.run/api/manifest/{depotId}", "Mozilla/5.0"),
+                    ($"http://gmrc.wudrm.com/manifest/{depotId}", "Mozilla/5.0")
                 };
 
-                var downloaded = false;
-                foreach (var dlUrl in downloadCandidates)
+                string? code = null;
+                foreach (var (srcUrl, ua) in codeSources)
                 {
                     if (ct.IsCancellationRequested) break;
                     try
                     {
-                        var bytes = await _httpClientProvider.SendWithProxyRetryAsync(
-                            "manifest-dl",
-                            TimeSpan.FromSeconds(25),
-                            client => client.GetByteArrayAsync(dlUrl),
+                        var resp = await _httpClientProvider.SendWithProxyRetryAsync(
+                            "manifest-code",
+                            TimeSpan.FromSeconds(6),
+                            client => client.GetStringAsync(srcUrl, ct),
                             client =>
                             {
-                                if (!client.DefaultRequestHeaders.UserAgent.Any())
-                                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+                                client.DefaultRequestHeaders.UserAgent.Clear();
+                                client.DefaultRequestHeaders.UserAgent.ParseAdd(ua);
                             });
 
-                        if (bytes != null && bytes.Length > 0)
+                        var trimmed = resp?.Trim();
+                        if (!string.IsNullOrEmpty(trimmed) && ulong.TryParse(trimmed, out var val) && val > 0)
                         {
-                            await File.WriteAllBytesAsync(targetPath, bytes, ct);
-                            await File.WriteAllBytesAsync(targetConfigPath, bytes, ct);
-                            downloaded = true;
-                            downloadedCount++;
-                            LogService.Info("清单同步", $"成功下载清单 {manifestName} ({bytes.Length} 字节) 并写入两处 depotcache");
+                            code = trimmed;
                             break;
                         }
                     }
-                    catch (Exception dlEx)
+                    catch
                     {
-                        LogService.Warn("清单同步", $"从 {dlUrl} 下载清单失败: {dlEx.Message}");
+                        // 尝试下一个清单授权码源
+                    }
+                }
+
+                if (string.IsNullOrEmpty(code))
+                {
+                    LogService.Warn("清单同步", $"未能在各号池接口检索到 Depot {depotId} 的清单授权码");
+                    continue;
+                }
+
+                progress?.Report($"正在通过官方 CDN 下载清单: {manifestName}...");
+
+                var cdnCandidates = new[]
+                {
+                    $"https://steampipe.akamaized.net/depot/{depotId}/manifest/{manifestId}/5/{code}",
+                    $"https://cdn.steamstatic.com/depot/{depotId}/manifest/{manifestId}/5/{code}",
+                    $"https://steamcdn-a.akamaihd.net/depot/{depotId}/manifest/{manifestId}/5/{code}"
+                };
+
+                var downloaded = false;
+                foreach (var cdnUrl in cdnCandidates)
+                {
+                    if (ct.IsCancellationRequested) break;
+                    try
+                    {
+                        var dlBytes = await _httpClientProvider.SendWithProxyRetryAsync(
+                            "manifest-cdn",
+                            TimeSpan.FromSeconds(20),
+                            client => client.GetByteArrayAsync(cdnUrl, ct),
+                            client =>
+                            {
+                                client.DefaultRequestHeaders.UserAgent.Clear();
+                                client.DefaultRequestHeaders.UserAgent.ParseAdd("Valve/Steam HTTP Client 1.0");
+                            });
+
+                        if (dlBytes != null && dlBytes.Length > 0)
+                        {
+                            // 若为 ZIP 压缩包格式 (PK\x03\x04)，解包提取原始清单流
+                            if (dlBytes.Length >= 4 && dlBytes[0] == 0x50 && dlBytes[1] == 0x4B && dlBytes[2] == 0x03 && dlBytes[3] == 0x04)
+                            {
+                                using var ms = new MemoryStream(dlBytes);
+                                using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+                                var entry = zip.GetEntry("z") ?? zip.Entries.FirstOrDefault();
+                                if (entry != null)
+                                {
+                                    using var es = entry.Open();
+                                    using var outMs = new MemoryStream();
+                                    await es.CopyToAsync(outMs, ct);
+                                    dlBytes = outMs.ToArray();
+                                }
+                            }
+
+                            // 校验 Steam 清单 Magic 头 (0xD0, 0x17, 0xF6, 0x71)
+                            if (dlBytes.Length >= 4 && dlBytes[0] == 0xD0 && dlBytes[1] == 0x17 && dlBytes[2] == 0xF6 && dlBytes[3] == 0x71)
+                            {
+                                await File.WriteAllBytesAsync(targetPath, dlBytes, ct);
+                                await File.WriteAllBytesAsync(targetConfigPath, dlBytes, ct);
+                                downloaded = true;
+                                downloadedCount++;
+                                LogService.Info("清单同步", $"成功下载清单 {manifestName} ({dlBytes.Length} 字节) 并写入两处 depotcache");
+                                break;
+                            }
+                            else
+                            {
+                                LogService.Warn("清单同步", $"从 {cdnUrl} 下载的内容校验 Magic 失败");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogService.Warn("清单同步", $"从 {cdnUrl} 下载清单失败: {ex.Message}");
                     }
                 }
 
                 if (!downloaded)
                 {
-                    LogService.Warn("清单同步", $"所有镜像源下载清单 {manifestName} 均失败");
+                    LogService.Warn("清单同步", $"Depot {depotId} 清单 {manifestName} 下载或校验未成功");
                 }
             }
 
@@ -346,5 +352,74 @@ public class SteamManifestService : ISteamManifestService
 
             return (syncedAtoB, syncedBtoA);
         }, ct);
+    }
+
+    private async Task<Dictionary<int, string>> ResolveDepotsForAppAsync(int appId, string steamPath, CancellationToken ct)
+    {
+        var result = new Dictionary<int, string>();
+        try
+        {
+            var url = $"https://api.steamcmd.net/v1/info/{appId}";
+            var json = await _httpClientProvider.SendWithProxyRetryAsync(
+                "steam-depot-manifests",
+                TimeSpan.FromSeconds(15),
+                client => client.GetStringAsync(url, ct),
+                ConfigureHeaders);
+
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("data", out var data) &&
+                data.TryGetProperty(appId.ToString(), out var appObj) &&
+                appObj.TryGetProperty("depots", out var depotsObj))
+            {
+                foreach (var prop in depotsObj.EnumerateObject())
+                {
+                    if (!int.TryParse(prop.Name, out var depotId)) continue;
+                    var dVal = prop.Value;
+                    if (dVal.ValueKind != JsonValueKind.Object) continue;
+                    if (dVal.TryGetProperty("depotfromapp", out _)) continue;
+
+                    if (dVal.TryGetProperty("config", out var configObj) &&
+                        configObj.TryGetProperty("oslist", out var osProp))
+                    {
+                        var os = osProp.GetString()?.ToLowerInvariant();
+                        if (!string.IsNullOrEmpty(os) && !os.Contains("windows"))
+                            continue;
+                    }
+
+                    if (dVal.TryGetProperty("manifests", out var manifestsObj) &&
+                        manifestsObj.TryGetProperty("public", out var pubObj) &&
+                        pubObj.TryGetProperty("gid", out var gidProp))
+                    {
+                        var gid = gidProp.GetString();
+                        if (!string.IsNullOrEmpty(gid))
+                        {
+                            result[depotId] = gid;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("清单同步", $"从 steamcmd 查询 AppID {appId} Depots 失败: {ex.Message}");
+        }
+
+        // 尝试从本地 ACF 读取 MountedDepots 补全
+        try
+        {
+            var acfPath = Path.Combine(steamPath, "steamapps", $"appmanifest_{appId}.acf");
+            if (File.Exists(acfPath))
+            {
+                var mounted = ParseMountedDepots(acfPath);
+                foreach (var kvp in mounted)
+                {
+                    if (!result.ContainsKey(kvp.Key))
+                        result[kvp.Key] = kvp.Value;
+                }
+            }
+        }
+        catch { }
+
+        return result;
     }
 }
