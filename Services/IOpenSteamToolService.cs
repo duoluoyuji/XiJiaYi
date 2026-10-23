@@ -271,7 +271,7 @@ public class OpenSteamToolService : IOpenSteamToolService
             try
             {
                 File.WriteAllText(tomlPath,
-                    "# 由喜加一生成\n[log]\nlevel = \"info\"\n\n[lua]\npaths = [\"config/stplug-in\"]\n");
+                    "# 由喜加一生成\n[log]\nlevel = \"info\"\n\n[lua]\npaths = [\"config/lua\", \"config/stplug-in\"]\n");
             }
             catch (Exception ex) { LogService.Warn("驱动", $"写入默认 opensteamtool.toml 失败: {ex.Message}"); }
         }

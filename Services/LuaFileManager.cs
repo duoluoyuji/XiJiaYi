@@ -352,6 +352,21 @@ public class LuaFileManager : ILuaFileManager, IDisposable
             var lua = Path.Combine(luaFolder, $"{appId}.lua");
             if (File.Exists(ks)) try { File.Delete(ks); } catch { }
             if (File.Exists(lua)) try { File.Delete(lua); } catch { }
+
+            // 旧版目录（config\stplug-in）里的同名脚本也要清掉，否则旧内核重启后会重新读回，造成“删不掉”
+            var steamPath = _steamPathService.DetectSteamPath();
+            if (!string.IsNullOrEmpty(steamPath))
+            {
+                var legacyFolder = Path.Combine(steamPath, "config", "stplug-in");
+                if (Directory.Exists(legacyFolder))
+                {
+                    foreach (var ext in new[] { ".ks", ".lua" })
+                    {
+                        var path = Path.Combine(legacyFolder, $"{appId}{ext}");
+                        if (File.Exists(path)) try { File.Delete(path); } catch { }
+                    }
+                }
+            }
         });
     }
 
