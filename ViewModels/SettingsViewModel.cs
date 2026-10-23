@@ -876,9 +876,8 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         _settingsService.Save(_settings);
         StatusMessage = value switch
         {
-            "ShikiLua" => "已切换为内置离线高速库 (推荐)",
-            "DepotKey2" => "已切换为备用镜像库 (ManifestHub)",
-            "Remote" => "已切换为远程清单仓库",
+            "ShikiLua" => "已切换为在线密钥库 (推荐)",
+            "DepotKey2" => "已切换为备线库 (ManifestHub)",
             _ => ""
         };
         if (!string.IsNullOrEmpty(StatusMessage))

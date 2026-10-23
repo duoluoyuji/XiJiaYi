@@ -14,7 +14,7 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <Title>喜加一</Title>
     <Product>喜加一</Product>
-    <Version>2.0.0</Version>
+    <Version>2.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -50,8 +50,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Data\ShikiLua\depotkeys.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Data\ShikiLua\appaccesstokens.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- 密钥库改为首次入库时联网拉取并缓存到 cache\v3，不再随包分发 -->
     <Content Include="Data\ShikiLua\names.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

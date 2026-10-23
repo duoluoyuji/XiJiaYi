@@ -15,19 +15,19 @@ public class SteamDepotService : ISteamDepotService
     private string _currentSource = "ShikiLua";
     private readonly Dictionary<string, (string DepotKeysUrl, string TokenKeysUrl)> _resolvedUrls = new();
 
-    private const string Source2DepotKeysUrl = "https://api.993499094.xyz/depotkeys.json";
-    private const string Source2TokenKeysUrl = "https://api.993499094.xyz/appaccesstokens.json";
-    /// <summary>内置高速密钥源；未配置托管时由内置离线数据兜底。</summary>
+    private const string Source2DepotKeysUrl = "https://raw.githubusercontent.com/SteamAutoCracks/ManifestHub/main/depotkeys.json";
+    private const string Source2TokenKeysUrl = "https://raw.githubusercontent.com/SteamAutoCracks/ManifestHub/main/appaccesstokens.json";
+    /// <summary>在线主密钥源（每日更新）。</summary>
     private const string ShikiLuaDepotKeysUrl = "https://api.993499094.xyz/depotkeys.json";
     private const string ShikiLuaTokenKeysUrl = "https://api.993499094.xyz/appaccesstokens.json";
 
     /// <summary>备用密钥数据源（ManifestHub 仓库及其镜像），按顺序逐个尝试。</summary>
     private static readonly (string DepotKeysUrl, string TokenKeysUrl)[] DefaultKeySourceCandidates =
     [
-        ("https://raw.githubusercontent.com/SteamAutoCracks/ManifestHub/main/depotkeys.json",
-         "https://raw.githubusercontent.com/SteamAutoCracks/ManifestHub/main/appaccesstokens.json"),
         ("https://api.993499094.xyz/depotkeys.json",
          "https://api.993499094.xyz/appaccesstokens.json"),
+        ("https://raw.githubusercontent.com/SteamAutoCracks/ManifestHub/main/depotkeys.json",
+         "https://raw.githubusercontent.com/SteamAutoCracks/ManifestHub/main/appaccesstokens.json"),
         ("https://cdn.jsdmirror.com/gh/SteamAutoCracks/ManifestHub@main/depotkeys.json",
          "https://cdn.jsdmirror.com/gh/SteamAutoCracks/ManifestHub@main/appaccesstokens.json"),
         ("https://raw.gitmirror.com/SteamAutoCracks/ManifestHub/main/depotkeys.json",
@@ -61,7 +61,7 @@ public class SteamDepotService : ISteamDepotService
         _currentSource = source;
     }
 
-    /// <summary>随程序分发的内置密钥库目录（Data/ShikiLua），离线可用。</summary>
+    /// <summary>可选的内置密钥库目录（Data/ShikiLua）。默认不再随包分发，用户手动放回文件即可恢复离线兜底。</summary>
     private static string GetBundledDataDir() =>
         Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "ShikiLua");
 
@@ -81,7 +81,7 @@ public class SteamDepotService : ISteamDepotService
 
             File.Copy(srcDepot, depotPath, true);
             File.Copy(srcToken, tokenPath, true);
-            LogService.Info("入库", "内置离线密钥库已就绪");
+            LogService.Info("入库", "已使用本地手动放置的离线密钥库");
             return true;
         }
         catch (Exception ex)

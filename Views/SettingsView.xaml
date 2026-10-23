@@ -289,9 +289,8 @@
                                 <ComboBox.Background>
                                     <SolidColorBrush Color="{DynamicResource ControlFillColorDefault}" Opacity="0.45"/>
                                 </ComboBox.Background>
-                                <ComboBoxItem Content="内置离线高速库 (推荐)" Tag="ShikiLua"/>
-                                <ComboBoxItem Content="备用镜像库 (ManifestHub)" Tag="DepotKey2"/>
-                                <ComboBoxItem Content="远程清单仓库" Tag="Remote"/>
+                                <ComboBoxItem Content="在线密钥库 (推荐)" Tag="ShikiLua"/>
+                                <ComboBoxItem Content="备线库 (ManifestHub)" Tag="DepotKey2"/>
                             </ComboBox>
                         </ui:SettingsCard>
 
