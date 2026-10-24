@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -48,7 +49,7 @@ public partial class ScriptDownloadViewModel : ObservableObject
     public bool IsLocalCacheMode => _currentDownloadMode is "ShikiLua" or "DepotKey2" or "DepotKey";
     public string CurrentDataSourceLabel => _currentDownloadMode switch
     {
-        "ShikiLua" => "内置离线高速库",
+        "ShikiLua" => "在线密钥库（本地缓存）",
         "DepotKey2" => "备用镜像库",
         _ => "远程清单仓库"
     };
@@ -395,14 +396,25 @@ public partial class ScriptDownloadViewModel : ObservableObject
 
         AddLog($"✅ 脚本配置文件已保存：{Path.GetFileName(luaPath)}");
 
+        var manifestCount = 0;
         try
         {
             AddLog("⚡ 正在自动同步与补全游戏清单缓存 (depotcache)...");
             await _manifestService.SyncDepotcacheAsync();
-            var (manifestOk, manifestCount, manifestMsg) = await _manifestService.EnsureManifestsCachedAsync(appId);
-            if (manifestOk && manifestCount > 0)
+            var (manifestOk, count, manifestMsg) = await _manifestService.EnsureManifestsCachedAsync(appId);
+            manifestCount = manifestOk ? count : 0;
+            if (manifestOk && count > 0)
             {
-                AddLog($"✅ 已就绪 {manifestCount} 个游戏清单（已双向同步至 depotcache）");
+                AddLog($"✅ 已就绪 {count} 个游戏清单（已双向同步至 depotcache）");
+            }
+            else if (queryResult.GameDepots.Count == 0)
+            {
+                // 查询本身成功但公开接口没有仓库节点，要区分“确实没有”与“请求超时”
+                AddLog(queryResult.RequiresToken
+                    ? "ℹ️ 清单提示：Steam 公开接口未返回该 AppID 的仓库清单（接口标记为需要访问令牌，常见于刚发售的新作），无法自动补全清单。"
+                    : "ℹ️ 清单提示：该 AppID 在公开接口中没有仓库清单，无需补全。");
+                if (queryResult.AppType.Equals("DLC", StringComparison.OrdinalIgnoreCase) && queryResult.ParentAppId > 0)
+                    AddLog($"ℹ️ 该 AppID 在 Steam 数据库中登记为 DLC，父应用为 {queryResult.ParentAppId}。");
             }
             else
             {
@@ -419,7 +431,18 @@ public partial class ScriptDownloadViewModel : ObservableObject
             AddLog("💡 提示：未检测到运行核心驱动，请在「设置」中一键部署");
         }
 
-        AddLog($"🎉 入库成功！《{queryResult.AppName}》已添加至 Steam 插件目录");
+        // 只有拿到仓库密钥或清单才算真正可用；仅有 addappid/addtoken 时不能报成功
+        var luaContent = File.Exists(luaPath) ? await File.ReadAllTextAsync(luaPath) : string.Empty;
+        var depotKeyCount = Regex.Matches(luaContent, @"addappid\(\d+,\s*1,\s*""").Count;
+
+        if (depotKeyCount == 0 && manifestCount == 0)
+        {
+            AddLog($"⚠️ 已写入 {Path.GetFileName(luaPath)}，但未匹配到任何仓库密钥或清单，游戏可能不会出现在库中或无法下载。");
+            StatusMessage = $"已写入（不完整）：{queryResult.AppName}";
+            return;
+        }
+
+        AddLog($"🎉 入库成功！《{queryResult.AppName}》已添加至 Steam 插件目录（仓库密钥 {depotKeyCount} 个，清单 {manifestCount} 个）");
         StatusMessage = $"入库成功：{queryResult.AppName}";
     }
 

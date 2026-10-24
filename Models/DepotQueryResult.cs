@@ -15,4 +15,7 @@ public class DepotQueryResult
     public List<DepotKeyInfo> GameDepots { get; set; } = new();
     public List<int> DlcAppIds { get; set; } = new();
     public string? AppToken { get; set; }
+    public string AppType { get; set; } = string.Empty;
+    public int ParentAppId { get; set; }
+    public bool RequiresToken { get; set; }
 }

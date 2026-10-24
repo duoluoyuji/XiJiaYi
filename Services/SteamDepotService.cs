@@ -390,8 +390,20 @@ public class SteamDepotService : ISteamDepotService
 
             var result = new DepotQueryResult { AppId = appId };
 
-            if (app.TryGetProperty("common", out var common) && common.TryGetProperty("name", out var name))
-                result.AppName = name.GetString() ?? $"App {appId}";
+            if (app.TryGetProperty("common", out var common))
+            {
+                if (common.TryGetProperty("name", out var name))
+                    result.AppName = name.GetString() ?? $"App {appId}";
+                if (common.TryGetProperty("type", out var type))
+                    result.AppType = type.GetString() ?? string.Empty;
+                if (common.TryGetProperty("parent", out var parent) && int.TryParse(parent.GetString(), out var parentId))
+                    result.ParentAppId = parentId;
+            }
+
+            // Steam 公开接口会把部分未公开/新作标记为缺少访问令牌，此时拿不到 depots 节点
+            if (app.TryGetProperty("_missing_token", out var missingToken) &&
+                missingToken.ValueKind == JsonValueKind.True)
+                result.RequiresToken = true;
 
             if (app.TryGetProperty("depots", out var depots))
             {

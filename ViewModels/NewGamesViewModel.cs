@@ -239,8 +239,8 @@ public partial class NewGamesViewModel : ObservableObject
         try
         {
             bool success = await _importViewModel.ImportGameAsync(game.AppId);
-            game.IsImported = IsImported(game.AppId);
-            if (success || game.IsImported)
+            game.IsImported = success && IsImported(game.AppId);
+            if (success)
             {
                 game.IsImported = true;
                 game.ImportStatus = "入库成功（重启查看）";
@@ -287,6 +287,8 @@ public partial class NewGamesViewModel : ObservableObject
     {
         var s when s.Contains("缺少解密密钥", StringComparison.Ordinal) =>
             "缺少解密密钥（等待更新）",
+        var s when s.Contains("不完整", StringComparison.Ordinal) =>
+            "已写入脚本，但缺少仓库密钥/清单（等待数据更新）",
         var s when s.Contains("查询失败", StringComparison.Ordinal) || s.Contains("获取短码失败", StringComparison.Ordinal) =>
             "数据源尚未收录（等待更新）",
         var s when s.Contains("未找到 Lua", StringComparison.Ordinal) || s.Contains("生成失败", StringComparison.Ordinal) =>
