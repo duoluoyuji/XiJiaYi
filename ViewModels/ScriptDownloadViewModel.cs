@@ -157,6 +157,47 @@ public partial class ScriptDownloadViewModel : ObservableObject
         }
     }
 
+    /// <summary>把本次新增的 AppID 与 Steam 热销榜前 50 求交集，命中则在日志里高亮提醒。</summary>
+    private async Task ReportHotGameUpdatesAsync(List<int> newlyAddedAppIds)
+    {
+        if (newlyAddedAppIds.Count == 0) return;
+
+        try
+        {
+            var json = await _httpClientProvider.SendWithProxyRetryAsync(
+                "script-steam-store",
+                TimeSpan.FromSeconds(10),
+                client => client.GetStringAsync("https://store.steampowered.com/api/featuredcategories?cc=cn&l=zh"),
+                ConfigureSteamStoreHeaders);
+
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("top_sellers", out var topSellers) ||
+                !topSellers.TryGetProperty("items", out var items))
+                return;
+
+            var newIdSet = new HashSet<int>(newlyAddedAppIds);
+            var hits = new List<string>();
+            foreach (var item in items.EnumerateArray())
+            {
+                if (!item.TryGetProperty("id", out var idElement)) continue;
+                var hotAppId = idElement.GetInt32();
+                if (!newIdSet.Contains(hotAppId)) continue;
+
+                var hotName = item.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null;
+                hits.Add(hotName ?? $"App {hotAppId}");
+            }
+
+            if (hits.Count > 0)
+            {
+                AddLog($"🔥 热门游戏密钥更新：{string.Join("、", hits)}");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("入库", $"热门游戏提醒获取失败: {ex.Message}");
+        }
+    }
+
     private async Task<(string? Name, string? HeaderImage)> GetAppNameAsync(int appId, CancellationToken ct = default)
     {
         try
@@ -645,6 +686,7 @@ public partial class ScriptDownloadViewModel : ObservableObject
                 AddLog($"   appaccesstokens.json 已更新：{updateResult.TokenKeysOldCount} → {updateResult.TokenKeysNewCount} 条 ({(tokenDelta >= 0 ? "+" : "")}{tokenDelta})");
                 AddLog($"   合并后有效：depotkeys {updateResult.EffectiveDepotKeyCount} 条 / appaccesstokens {updateResult.EffectiveTokenKeyCount} 条");
                 StatusMessage = $"{CurrentDataSourceLabel}密钥缓存已更新";
+                await ReportHotGameUpdatesAsync(updateResult.NewlyAddedAppIds);
             }
             else
             {

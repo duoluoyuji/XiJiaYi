@@ -32,4 +32,6 @@ public class KeyFileUpdateResult
     public long TokenKeysSizeBytes { get; set; }
     public int EffectiveDepotKeyCount { get; set; }
     public int EffectiveTokenKeyCount { get; set; }
+    /// <summary>本次更新新增的 AppID（来自 appaccesstokens.json 的差集），用于热门游戏提醒。</summary>
+    public List<int> NewlyAddedAppIds { get; set; } = new();
 }

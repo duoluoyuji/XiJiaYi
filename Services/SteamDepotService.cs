@@ -166,6 +166,18 @@ public class SteamDepotService : ISteamDepotService
         return merged;
     }
 
+    /// <summary>对比新旧 appaccesstokens，取出本次新增的 AppID（热门提醒用）。</summary>
+    private static List<int> GetNewlyAddedAppIds(Dictionary<string, string>? oldDict, Dictionary<string, string> freshDict)
+    {
+        var added = new List<int>();
+        foreach (var key in freshDict.Keys)
+        {
+            if (oldDict != null && oldDict.ContainsKey(key)) continue;
+            if (int.TryParse(key, out var appId)) added.Add(appId);
+        }
+        return added;
+    }
+
     /// <summary>写入本次更新后所有来源合并得到的有效条数，供界面展示。</summary>
     private void FillEffectiveCounts(KeyFileUpdateResult result)
     {
@@ -313,6 +325,7 @@ public class SteamDepotService : ISteamDepotService
 
                     result.DepotKeysNewCount = mergedDepot.Count;
                     result.TokenKeysNewCount = mergedToken.Count;
+                    result.NewlyAddedAppIds = GetNewlyAddedAppIds(oldTokenDict, bundledToken);
                 }
                 catch (Exception ex) { LogService.Warn("入库", $"解析内置密钥库失败: {ex.Message}"); }
 
@@ -373,6 +386,7 @@ public class SteamDepotService : ISteamDepotService
                     result.TokenKeysSizeBytes = mergedTokenBytes.Length;
                     result.DepotKeysNewCount = mergedDepot.Count;
                     result.TokenKeysNewCount = mergedToken.Count;
+                    result.NewlyAddedAppIds = GetNewlyAddedAppIds(oldTokenDict, freshToken);
 
                     FillEffectiveCounts(result);
                     LogService.Info("入库", $"密钥数据源更新成功: {urls.DepotKeysUrl}");
