@@ -643,6 +643,7 @@ public partial class ScriptDownloadViewModel : ObservableObject
                 AddLog($"✅ {CurrentDataSourceLabel}状态：");
                 AddLog($"   depotkeys.json 已更新：{updateResult.DepotKeysOldCount} → {updateResult.DepotKeysNewCount} 条 ({(depotDelta >= 0 ? "+" : "")}{depotDelta})");
                 AddLog($"   appaccesstokens.json 已更新：{updateResult.TokenKeysOldCount} → {updateResult.TokenKeysNewCount} 条 ({(tokenDelta >= 0 ? "+" : "")}{tokenDelta})");
+                AddLog($"   合并后有效：depotkeys {updateResult.EffectiveDepotKeyCount} 条 / appaccesstokens {updateResult.EffectiveTokenKeyCount} 条");
                 StatusMessage = $"{CurrentDataSourceLabel}密钥缓存已更新";
             }
             else

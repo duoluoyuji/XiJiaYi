@@ -154,6 +154,29 @@ public class SteamDepotService : ISteamDepotService
         return combined;
     }
 
+    /// <summary>把新数据合并进旧数据，只增不减，避免上游删减条目造成本地覆盖丢失。</summary>
+    private static Dictionary<string, string> MergeKeys(Dictionary<string, string>? oldDict, Dictionary<string, string> freshDict)
+    {
+        var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (oldDict != null)
+        {
+            foreach (var kv in oldDict) merged[kv.Key] = kv.Value;
+        }
+        foreach (var kv in freshDict) merged[kv.Key] = kv.Value;
+        return merged;
+    }
+
+    /// <summary>写入本次更新后所有来源合并得到的有效条数，供界面展示。</summary>
+    private void FillEffectiveCounts(KeyFileUpdateResult result)
+    {
+        try
+        {
+            result.EffectiveDepotKeyCount = LoadCombinedDepotKeys().Count;
+            result.EffectiveTokenKeyCount = LoadCombinedTokenKeys().Count;
+        }
+        catch (Exception ex) { LogService.Warn("入库", $"统计合并密钥条数失败: {ex.Message}"); }
+    }
+
     private static void LoadKeysFromFile(string filePath, Dictionary<string, string> targetDict)
     {
         if (!File.Exists(filePath)) return;
@@ -249,14 +272,16 @@ public class SteamDepotService : ISteamDepotService
             var depotPath = GetDepotKeysPath();
             var tokenPath = GetTokenKeysPath();
 
-            // 读取旧文件条目数
+            // 读取旧文件（同时保留旧条目用于合并，避免新数据比旧数据少时丢键）
+            Dictionary<string, string>? oldDepotDict = null;
+            Dictionary<string, string>? oldTokenDict = null;
             if (File.Exists(depotPath))
             {
                 try
                 {
                     var oldContent = await File.ReadAllTextAsync(depotPath, ct);
-                    var oldDict = JsonSerializer.Deserialize<Dictionary<string, string>>(oldContent);
-                    result.DepotKeysOldCount = oldDict?.Count ?? 0;
+                    oldDepotDict = JsonSerializer.Deserialize<Dictionary<string, string>>(oldContent);
+                    result.DepotKeysOldCount = oldDepotDict?.Count ?? 0;
                 }
                 catch (Exception ex) { LogService.Warn("入库", $"解析旧 depot 密钥文件失败: {ex.Message}"); result.DepotKeysOldCount = 0; }
             }
@@ -265,26 +290,33 @@ public class SteamDepotService : ISteamDepotService
                 try
                 {
                     var oldContent = await File.ReadAllTextAsync(tokenPath, ct);
-                    var oldDict = JsonSerializer.Deserialize<Dictionary<string, string>>(oldContent);
-                    result.TokenKeysOldCount = oldDict?.Count ?? 0;
+                    oldTokenDict = JsonSerializer.Deserialize<Dictionary<string, string>>(oldContent);
+                    result.TokenKeysOldCount = oldTokenDict?.Count ?? 0;
                 }
                 catch (Exception ex) { LogService.Warn("入库", $"解析旧 token 密钥文件失败: {ex.Message}"); result.TokenKeysOldCount = 0; }
             }
 
-            // ShikiLua：内置数据优先（离线可用），直接落地到缓存
+            // ShikiLua：内置数据优先（离线可用），与旧缓存合并后落地
             if (_currentSource == "ShikiLua" && TryCopyBundledShikiLua(depotPath, tokenPath))
             {
                 try
                 {
-                    var newDepot = JsonSerializer.Deserialize<Dictionary<string, string>>(
-                        await File.ReadAllTextAsync(depotPath, ct));
-                    result.DepotKeysNewCount = newDepot?.Count ?? 0;
-                    var newToken = JsonSerializer.Deserialize<Dictionary<string, string>>(
-                        await File.ReadAllTextAsync(tokenPath, ct));
-                    result.TokenKeysNewCount = newToken?.Count ?? 0;
+                    var bundledDepot = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                        await File.ReadAllTextAsync(depotPath, ct)) ?? new();
+                    var bundledToken = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                        await File.ReadAllTextAsync(tokenPath, ct)) ?? new();
+
+                    var mergedDepot = MergeKeys(oldDepotDict, bundledDepot);
+                    var mergedToken = MergeKeys(oldTokenDict, bundledToken);
+                    await File.WriteAllBytesAsync(depotPath, JsonSerializer.SerializeToUtf8Bytes(mergedDepot), ct);
+                    await File.WriteAllBytesAsync(tokenPath, JsonSerializer.SerializeToUtf8Bytes(mergedToken), ct);
+
+                    result.DepotKeysNewCount = mergedDepot.Count;
+                    result.TokenKeysNewCount = mergedToken.Count;
                 }
                 catch (Exception ex) { LogService.Warn("入库", $"解析内置密钥库失败: {ex.Message}"); }
 
+                FillEffectiveCounts(result);
                 result.Success = true;
                 return result;
             }
@@ -321,25 +353,28 @@ public class SteamDepotService : ISteamDepotService
                     if (depotData.Length == 0)
                         throw new InvalidOperationException("下载的 depotkeys.json 为空");
 
-                    await File.WriteAllBytesAsync(depotPath, depotData, ct);
-                    result.DepotKeysSizeBytes = depotData.Length;
-                    await File.WriteAllBytesAsync(tokenPath, tokenData, ct);
-                    result.TokenKeysSizeBytes = tokenData.Length;
+                    var freshDepot = JsonSerializer.Deserialize<Dictionary<string, string>>(depotData)
+                        ?? throw new InvalidOperationException("下载的 depotkeys.json 解析失败");
+                    var freshToken = JsonSerializer.Deserialize<Dictionary<string, string>>(tokenData)
+                        ?? new Dictionary<string, string>();
+                    if (freshDepot.Count == 0)
+                        throw new InvalidOperationException("下载的 depotkeys.json 不含有效条目");
 
-                    // 解析新文件条目数
-                    try
-                    {
-                        var newDict = JsonSerializer.Deserialize<Dictionary<string, string>>(depotData);
-                        result.DepotKeysNewCount = newDict?.Count ?? 0;
-                    }
-                    catch (Exception ex) { LogService.Warn("入库", $"解析新 depot 密钥文件失败: {ex.Message}"); result.DepotKeysNewCount = 0; }
-                    try
-                    {
-                        var newDict = JsonSerializer.Deserialize<Dictionary<string, string>>(tokenData);
-                        result.TokenKeysNewCount = newDict?.Count ?? 0;
-                    }
-                    catch (Exception ex) { LogService.Warn("入库", $"解析新 token 密钥文件失败: {ex.Message}"); result.TokenKeysNewCount = 0; }
+                    // 与旧缓存合并后再落盘：新数据比旧数据少时也不会丢键
+                    var mergedDepot = MergeKeys(oldDepotDict, freshDepot);
+                    var mergedToken = MergeKeys(oldTokenDict, freshToken);
+                    var mergedDepotBytes = JsonSerializer.SerializeToUtf8Bytes(mergedDepot);
+                    var mergedTokenBytes = JsonSerializer.SerializeToUtf8Bytes(mergedToken);
 
+                    await File.WriteAllBytesAsync(depotPath, mergedDepotBytes, ct);
+                    await File.WriteAllBytesAsync(tokenPath, mergedTokenBytes, ct);
+
+                    result.DepotKeysSizeBytes = mergedDepotBytes.Length;
+                    result.TokenKeysSizeBytes = mergedTokenBytes.Length;
+                    result.DepotKeysNewCount = mergedDepot.Count;
+                    result.TokenKeysNewCount = mergedToken.Count;
+
+                    FillEffectiveCounts(result);
                     LogService.Info("入库", $"密钥数据源更新成功: {urls.DepotKeysUrl}");
                     result.Success = true;
                     return result;

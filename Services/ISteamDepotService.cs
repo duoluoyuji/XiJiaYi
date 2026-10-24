@@ -30,4 +30,6 @@ public class KeyFileUpdateResult
     public int TokenKeysNewCount { get; set; }
     public long DepotKeysSizeBytes { get; set; }
     public long TokenKeysSizeBytes { get; set; }
+    public int EffectiveDepotKeyCount { get; set; }
+    public int EffectiveTokenKeyCount { get; set; }
 }
