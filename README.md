@@ -8,7 +8,8 @@
 
 ## 📸 功能一览
 
-<img width="1755" height="1182" alt="image" src="https://github.com/user-attachments/assets/974bd64d-6764-4c9d-8603-5f63d2de95af" />
+<img width="1759" height="1189" alt="image" src="https://github.com/user-attachments/assets/a9d41c1e-4933-4749-8cef-45ed9f341df6" />
+
 
 ---
 
