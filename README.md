@@ -1,15 +1,10 @@
 # 喜加一（XiJiaYi）
 
-基于 WPF + .NET 8 开发的现代高级 Steam 游戏管理与生态工具（深度适配开源 OpenSteamTool 内核）。
-
-从制作到发布皆由 ChatGPT 一手包办，有问题不要问我，我也不懂。
-
+基于 WPF + .NET 8 开发的现代高级 Steam 游戏管理与生态工具。
 ---
-
 ## 📸 功能一览
 
 <img width="1759" height="1189" alt="image" src="https://github.com/user-attachments/assets/a9d41c1e-4933-4749-8cef-45ed9f341df6" />
-
 
 ---
 
