@@ -133,10 +133,13 @@ public sealed class AuthorizationService : IAuthorizationService
         if (eticketBytes.Length != eticket.Value.DeclaredBytes)
             return Fail($"eticket 声明 {eticket.Value.DeclaredBytes} 字节，实际解码 {eticketBytes.Length} 字节，长度不一致");
 
-        // AppTicket 内嵌校验：偏移 16 处小端 uint32 应等于 appid
-        var embeddedAppId = BitConverter.ToUInt32(appTicketBytes, 16);
-        if (embeddedAppId != appId)
-            return Fail($"appticket 内嵌 AppID {embeddedAppId} 与文件声明 {appId} 不一致，请确认 tickets.txt 与游戏对应");
+        // AppTicket 内嵌校验：不同票据版本的 AppID 偏移不固定（Steam 接口会返回 appIdOffset），
+        // 因此按小端 uint32 在票据内查找声明值，找到即视为归属匹配
+        if (!ContainsAppId(appTicketBytes, appId))
+        {
+            var legacyAppId = appTicketBytes.Length >= 20 ? BitConverter.ToUInt32(appTicketBytes, 16) : 0;
+            return Fail($"appticket 内未找到声明的 AppID {appId}（旧偏移处读取为 {legacyAppId}），请确认 tickets.txt 与游戏对应");
+        }
 
         // AppTicket 内嵌 SteamID：偏移 8 处小端 uint64，必须非零
         var steamId = BitConverter.ToUInt64(appTicketBytes, 8);
@@ -148,6 +151,19 @@ public sealed class AuthorizationService : IAuthorizationService
             Ok: true, Error: null,
             AppId: appId, SteamId: steamId,
             AppTicket: appTicketBytes, ETicket: eticketBytes);
+    }
+
+    /// <summary>在票据字节中查找小端 uint32 形式的 AppID（票据版本不同，偏移不固定）。</summary>
+    private static bool ContainsAppId(byte[] ticket, uint appId)
+    {
+        var target = BitConverter.GetBytes(appId);
+        for (var i = 0; i <= ticket.Length - 4; i++)
+        {
+            if (ticket[i] == target[0] && ticket[i + 1] == target[1] &&
+                ticket[i + 2] == target[2] && ticket[i + 3] == target[3])
+                return true;
+        }
+        return false;
     }
 
     private static byte[]? DecodeHex(string hex)

@@ -235,13 +235,20 @@ internal static class TicketWorkerNative
         {
             var written = getAppOwnershipTicketData(
                 appTicketInterface, appId, buffer, 2048,
-                out _, out var steamIdOffset, out _, out _);
+                out var appIdOffset, out var steamIdOffset, out _, out _);
             if (written == 0 || written > 2048)
                 return Error($"未获取到所有权票据（AppID {appId}）。请确认当前账号拥有该游戏并已在本机缓存授权信息，且 Steam 处于运行状态");
 
             var appTicket = new byte[written];
             Marshal.Copy(buffer, appTicket, 0, (int)written);
-            Log("提取", $"获取所有权票据成功：{appTicket.Length} 字节");
+            Log("提取", $"获取所有权票据成功：{appTicket.Length} 字节（appIdOffset={appIdOffset}，steamIdOffset={steamIdOffset}）");
+
+            // 用接口返回的 appIdOffset 校验票据归属（不同票据版本的偏移并不固定）
+            if (appIdOffset + 4 > written)
+                return Error($"所有权票据结构异常：AppID 偏移 {appIdOffset} 超出票据长度 {written}");
+            var ticketEmbeddedAppId = (uint)Marshal.ReadInt32(buffer, (int)appIdOffset);
+            if (ticketEmbeddedAppId != appId)
+                return Error($"所有权票据内嵌 AppID {ticketEmbeddedAppId} 与请求的 {appId} 不一致");
 
             // 当前账号 SteamID：从所有权票据缓冲区 steamId 偏移处读取（与 OpenSteamTool 一致，
             // 不使用 ISteamUser::GetSteamID 以避免其 CSteamID 返回 ABI 在 x64 下的崩溃风险）
