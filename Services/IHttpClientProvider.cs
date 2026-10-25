@@ -7,7 +7,7 @@ namespace SteamLuaManager.Services;
 
 public interface IHttpClientProvider
 {
-    HttpClient GetClient(string name, TimeSpan timeout, Action<HttpClient>? configure = null);
+    HttpClient GetClient(string name, TimeSpan timeout, Action<HttpClient>? configure = null, bool allowAutoRedirect = true);
     Task<T> SendWithProxyRetryAsync<T>(string name, TimeSpan timeout, Func<HttpClient, Task<T>> sendAsync, Action<HttpClient>? configure = null);
     Task SendWithProxyRetryAsync(string name, TimeSpan timeout, Func<HttpClient, Task> sendAsync, Action<HttpClient>? configure = null);
     void Reset(string? name = null);
@@ -15,26 +15,28 @@ public interface IHttpClientProvider
 
 public sealed class HttpClientProvider : IHttpClientProvider, IDisposable
 {
-    private sealed record ClientEntry(HttpClient Client, string ProxySignature);
+    private sealed record ClientEntry(HttpClient Client, string ProxySignature, bool AllowAutoRedirect);
     private sealed record ProxySnapshot(string Signature, IWebProxy? Proxy, bool UseProxy);
 
     private readonly object _lock = new();
     private readonly Dictionary<string, ClientEntry> _clients = new();
 
-    public HttpClient GetClient(string name, TimeSpan timeout, Action<HttpClient>? configure = null)
+    public HttpClient GetClient(string name, TimeSpan timeout, Action<HttpClient>? configure = null, bool allowAutoRedirect = true)
     {
         var proxy = GetProxySnapshot();
         lock (_lock)
         {
-            if (_clients.TryGetValue(name, out var entry) && entry.ProxySignature == proxy.Signature)
+            if (_clients.TryGetValue(name, out var entry) &&
+                entry.ProxySignature == proxy.Signature &&
+                entry.AllowAutoRedirect == allowAutoRedirect)
                 return entry.Client;
 
             if (_clients.Remove(name, out entry))
                 entry.Client.Dispose();
 
-            var client = CreateClient(timeout, proxy);
+            var client = CreateClient(timeout, proxy, allowAutoRedirect);
             configure?.Invoke(client);
-            _clients[name] = new ClientEntry(client, proxy.Signature);
+            _clients[name] = new ClientEntry(client, proxy.Signature, allowAutoRedirect);
             return client;
         }
     }
@@ -87,10 +89,11 @@ public sealed class HttpClientProvider : IHttpClientProvider, IDisposable
         Reset();
     }
 
-    private static HttpClient CreateClient(TimeSpan timeout, ProxySnapshot proxy)
+    private static HttpClient CreateClient(TimeSpan timeout, ProxySnapshot proxy, bool allowAutoRedirect)
     {
         var handler = new SocketsHttpHandler
         {
+            AllowAutoRedirect = allowAutoRedirect,
             UseProxy = proxy.UseProxy,
             Proxy = proxy.Proxy,
             PooledConnectionLifetime = TimeSpan.FromMinutes(2),

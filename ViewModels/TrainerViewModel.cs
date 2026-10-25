@@ -17,7 +17,6 @@ namespace SteamLuaManager.ViewModels;
 public partial class TrainerViewModel : ObservableObject
 {
     private readonly ITrainerService _trainerService;
-    private readonly IHttpClientProvider _httpClientProvider;
 
     private string TrainersDir => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "修改器");
 
@@ -47,10 +46,9 @@ public partial class TrainerViewModel : ObservableObject
 
     private DispatcherTimer? _statusTimer;
 
-    public TrainerViewModel(ITrainerService trainerService, IHttpClientProvider httpClientProvider)
+    public TrainerViewModel(ITrainerService trainerService)
     {
         _trainerService = trainerService;
-        _httpClientProvider = httpClientProvider;
         LoadDownloaded();
     }
 
@@ -153,32 +151,10 @@ public partial class TrainerViewModel : ObservableObject
             var dir = Path.Combine(TrainersDir, SanitizeName(trainer.GameName));
             Directory.CreateDirectory(dir);
 
-            using var client = _httpClientProvider.GetClient("trainer-download", TimeSpan.FromMinutes(20));
-            using var resp = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-            resp.EnsureSuccessStatusCode();
-
-            // 用服务器返回的真实文件名保存（否则 URL 末尾的 token 会变成无扩展名的乱码文件）
-            var fileName = resp.Content.Headers.ContentDisposition?.FileNameStar
-                           ?? resp.Content.Headers.ContentDisposition?.FileName
-                           ?? ResolveFileName(url, trainer.GameName);
-            fileName = SanitizeName(fileName.Trim('"'));
-            if (string.IsNullOrWhiteSpace(fileName) || fileName.Length > 120)
-                fileName = ResolveFileName(url, trainer.GameName);
-            var dest = Path.Combine(dir, fileName);
-
-            var total = resp.Content.Headers.ContentLength ?? 0;
-            await using var src = await resp.Content.ReadAsStreamAsync();
-            await using var dst = File.Create(dest);
-            var buffer = new byte[81920];
-            long read = 0;
-            int n;
-            while ((n = await src.ReadAsync(buffer)) > 0)
-            {
-                await dst.WriteAsync(buffer.AsMemory(0, n));
-                read += n;
-                if (total > 0)
-                    trainer.DownloadProgress = read * 100.0 / total;
-            }
+            // 由 TrainerService 手动跟随跳转并逐跳携带 Referer，否则最后一跳会被判定 403
+            var dest = await _trainerService.DownloadTrainerFileAsync(
+                trainer.PageUrl, url, dir,
+                new Progress<double>(p => trainer.DownloadProgress = p));
 
             // zip 压缩包自动解压并定位修改器主程序，保证“打开”能直接用
             if (dest.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
@@ -438,14 +414,4 @@ public partial class TrainerViewModel : ObservableObject
         return string.Concat((name ?? "Trainer").Select(c => invalid.Contains(c) ? '_' : c));
     }
 
-    private static string ResolveFileName(string url, string gameName)
-    {
-        try
-        {
-            var name = Path.GetFileName(new Uri(url).AbsolutePath);
-            if (!string.IsNullOrWhiteSpace(name) && name.Length < 120) return name;
-        }
-        catch { }
-        return $"{SanitizeName(gameName)}.zip";
-    }
 }

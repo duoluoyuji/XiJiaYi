@@ -1,4 +1,6 @@
+using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
@@ -265,6 +267,80 @@ public class TrainerService : ITrainerService
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// 下载修改器文件。flingtrainer 要求每个跳转都携带原始文章页 Referer，
+    /// 而 HttpClient 自动跟随跳转会丢掉 Referer（最终 403），因此这里手动跟随重定向。
+    /// </summary>
+    public async Task<string> DownloadTrainerFileAsync(string pageUrl, string downloadUrl, string targetDir, IProgress<double>? progress = null, CancellationToken ct = default)
+    {
+        Directory.CreateDirectory(targetDir);
+        var client = _httpClientProvider.GetClient("trainer-download", TimeSpan.FromMinutes(20), allowAutoRedirect: false);
+
+        HttpResponseMessage finalResponse;
+        var currentUrl = downloadUrl;
+        var hop = 0;
+        while (true)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, currentUrl);
+            if (!string.IsNullOrWhiteSpace(pageUrl) && Uri.TryCreate(pageUrl, UriKind.Absolute, out var referer))
+                request.Headers.Referrer = referer;
+
+            var resp = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            var status = (int)resp.StatusCode;
+            if (status is >= 300 and < 400 && resp.Headers.Location != null)
+            {
+                if (hop++ >= 6)
+                {
+                    resp.Dispose();
+                    throw new InvalidOperationException("下载失败：跳转次数过多");
+                }
+                var location = resp.Headers.Location;
+                currentUrl = location.IsAbsoluteUri
+                    ? location.AbsoluteUri
+                    : new Uri(new Uri(currentUrl), location.OriginalString).AbsoluteUri;
+                resp.Dispose();
+                continue;
+            }
+            finalResponse = resp;
+            break;
+        }
+
+        using (finalResponse)
+        {
+            if (!finalResponse.IsSuccessStatusCode)
+                throw new InvalidOperationException($"下载失败：服务器返回 {(int)finalResponse.StatusCode}");
+
+            var fileName = finalResponse.Content.Headers.ContentDisposition?.FileNameStar
+                           ?? finalResponse.Content.Headers.ContentDisposition?.FileName
+                           ?? Path.GetFileName(new Uri(currentUrl).AbsolutePath);
+            fileName = SanitizeFileName(fileName.Trim('"'));
+            if (string.IsNullOrWhiteSpace(fileName) || fileName.Length > 120)
+                fileName = "trainer.zip";
+
+            var dest = Path.Combine(targetDir, fileName);
+            var total = finalResponse.Content.Headers.ContentLength ?? 0;
+            await using var src = await finalResponse.Content.ReadAsStreamAsync(ct);
+            await using var dst = File.Create(dest);
+            var buffer = new byte[81920];
+            long read = 0;
+            int n;
+            while ((n = await src.ReadAsync(buffer, ct)) > 0)
+            {
+                await dst.WriteAsync(buffer.AsMemory(0, n), ct);
+                read += n;
+                if (total > 0)
+                    progress?.Report(read * 100.0 / total);
+            }
+            return dest;
+        }
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return string.Concat((name ?? string.Empty).Select(c => invalid.Contains(c) ? '_' : c));
     }
 
     private async Task<string> FetchHomepageAsync()
